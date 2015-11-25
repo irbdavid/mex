@@ -1,0 +1,28 @@
+{
+"name":"MEX SPICE kernel manifest",
+"version":"0.1",
+"author":"david.andrews@irfu.se",
+"date":"2014-09-02",
+"local_directory":"$SC_DATA_DIR/mex/spice",
+"server_name":"ssols01.esac.esa.int",
+"server_path":"/pub/data/SPICE/MEX/kernels",
+"kernels":[
+            "/lsk/NAIF$VERSION.TLS",
+            "/pck/DE$VERSION-MASSES.TPC",
+            "/pck/MARS_IAU2000_V$VERSION.TPC",
+            "/pck/PCK$VERSION.TPC",
+            "/pck/EARTH_*_$VERSION.BPC",
+            "/fk/EARTH_TOPO_$VERSION.TF",
+            "/fk/EARTHFIXEDIAU.TF",
+            "/fk/EARTHFIXEDITRF93.TF",
+            "/fk/ESTRACK_V$VERSION.TF",
+            "/fk/MEX_V$VERSION.TF",
+            "/fk/NEW_NORCIA_TOPO.TF",
+            "/fk/RSSD$VERSION.TF",
+            "/spk/DE$VERSION.BSP",
+            "/spk/ORMF_*_$VERSION.BSP",
+            "/spk/ORMM_*_$VERSION.BSP",
+            "/orbnum/ORMM_MERGED_$VERSION.ORB",
+            "/orbnum/ORMF_*_$VERSION.ORB"
+        ]
+}
