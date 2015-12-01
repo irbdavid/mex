@@ -12,13 +12,6 @@ import pickle
 import pylab as plt
 import matplotlib as mpl
 
-valid_directories = [
-    '/Volumes/FC2TB/data/mex/',
-    '/Volumes/ETC/data/mex/',
-    '/Volumes/MDATA/data/mex/',
-    '/Users/dave/data/mex/',
-    '/homelocal/data_maris/mex/'
-]
 output_directories = [
     '/Users/dave/Documents/Mars/',
     '/homelocal/data_maris/mex_results/'
@@ -156,7 +149,7 @@ def position(time, frame='IAU_MARS', target='MEX', observer='MARS', correction='
     def f(t):
         try:
             pos, lt = spiceypy.spkpos(target, t, frame, correction, observer)
-        except spiceypy.SpiceException:
+        except spiceypy.support_types.SpiceyError:
             return np.empty(3) + np.nan
         return np.array(pos)
     if hasattr(time, '__iter__'):
@@ -408,9 +401,15 @@ def read_all_mex_orbits(recompute=False, allow_write=True, verbose=False):
         else:
             if verbose:
                 print('Restoring pickled orbits from %s' % fname)
-            with open(fname, 'rb') as f:
-                orbits = pickle.load(f)
-            return orbits
+
+            try:
+                with open(fname, 'rb') as f:
+                    orbits = pickle.load(f)
+                    return orbits
+            except Exception as e:
+                print('Encountered error reading stored orbit file:')
+                print('\t', e)
+                require_write = True
 
     processed = []
     for pattern in ['ORMF_*.ORB', 'ORMM_MERGED_*.ORB']:
