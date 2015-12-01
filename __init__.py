@@ -1,6 +1,6 @@
+"""Python routines for MEX/MARSIS analsyis (and some MEX/ASPERA)"""
+
 __all__ = ['mex_sc', 'maRs', 'ais']
-
-
 
 # Generic time stuff
 import celsius
