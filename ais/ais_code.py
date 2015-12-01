@@ -23,6 +23,7 @@ from scipy.signal import detrend
 import scipy.ndimage.morphology as morphology
 
 import skimage.morphology
+import skimage.measure
 
 import pickle
 
@@ -35,12 +36,6 @@ import tempfile
 # calibrator = None
 
 import mex
-
-__author__ = "David Andrews"
-__copyright__ = "Copyright 2015, David Andrews"
-__license__ = "MIT"
-__version__ = "1.0"
-__email__ = "david.andrews@irfu.se"
 
 __auto_version__ = '1.0'
 
@@ -291,7 +286,7 @@ def remove_none_edge_intersecting(img, edge=0, width=1, as_list=False):
 
     fp_list = []
 
-    s = skimage.morphology.label(img.astype(int))
+    s = skimage.measure.label(img.astype(int))
     s_set = np.unique(s * mask)
     if s_set.sum() > 0:
         for v in s_set:
@@ -945,7 +940,7 @@ class Ionogram(object):
         # Label, find COM of each thing, chuck those with COMS in the lower ~25 % of the image
         # Rank by size, up to a maximum of 'one column'
         # highest taken to be first line, then take remaining as harmonics if they are above 50% of first
-        s = skimage.morphology.label(self._fp_data.astype(int))
+        s = skimage.measure.label(self._fp_data.astype(int))
         self._morphology_fp_locations = []
         for v in np.unique(s):
             tmp = s == v
@@ -1315,7 +1310,7 @@ class Ionogram(object):
     #     if not hasattr(self, '_ion_data'):
     #         self.generate_binary_arrays()
     #      self._ion_data
-    #          s = skimage.morphology.label(img.astype(int))
+    #          s = skimage.measure.label(img.astype(int))
     # s_set = np.unique(s * mask)
     # if s_set.sum() > 0:
     #     for v in s_set:
@@ -2071,7 +2066,7 @@ class IonogramDigitization:
             self.altitude /= 1.0E3 # into km
             # self.density is already in cm^-3
         except np.linalg.LinAlgError as e:
-            print('Linear algebra error, ' + str(e))
+            # print('Linear algebra error, ' + str(e))
             return False
 
         pos = mex.iau_mars_position(float(self.time))

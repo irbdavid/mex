@@ -40,9 +40,9 @@ __status__ = "Development"
 
 class AISReview(object):
     """docstring for AISReview"""
-    def __init__(self, orbit, start_time=None, finish_time=None, debug=False, fig=None,
-                    db_filename=None, marker_size=4., verbose=False,
-                    vmin=None, vmax=None):
+    def __init__(self, orbit, start_time=None, finish_time=None, debug=False,
+                    fig=None, db_filename=None, marker_size=4.,
+                    verbose=False, vmin=None, vmax=None):
         super(AISReview, self).__init__()
 
         self.orbit = orbit
@@ -50,14 +50,16 @@ class AISReview(object):
 
         self.debug = debug
         self.fig = fig
-        if self.fig is None:
-            self.fig = plt.figure(1)
+        # if self.fig is None:
+        #     self.fig = plt.figure()
 
         self.calibrator = ais_code.AISEmpiricalCalibration()
 
         self.mex_orbit = mex.orbits[self.orbit]
-        self.start_time = self.mex_orbit.periapsis - 200. * ais_code.ais_spacing_seconds
-        self.finish_time = self.mex_orbit.periapsis + 200. * ais_code.ais_spacing_seconds
+        self.start_time = self.mex_orbit.periapsis - 200. * \
+                        ais_code.ais_spacing_seconds
+        self.finish_time = self.mex_orbit.periapsis + 200. * \
+                        ais_code.ais_spacing_seconds
 
         if start_time:
             self.start_time = start_time
@@ -116,6 +118,7 @@ class AISReview(object):
         print(self.ionogram_list[0].time - s0, self.ionogram_list[-1].time - s0)
         print(min([i.time for i in self.ionogram_list]) - s0, max([i.time for i in self.ionogram_list]) - s0)
 
+
         if self.ionogram_list[0].time < self.extent[0]:
             print('WARNING: Pre-extending plot range by %s seconds to cover loaded ionograms' % (
                             self.extent[0] - self.ionogram_list[0].time))
@@ -151,7 +154,6 @@ class AISReview(object):
 
         if empty_count:
             print('Found %d empty ionograms / missing data' % empty_count)
-
         errs = np.geterr()
         np.seterr(divide='ignore')
         self.tser_arr = np.log10(np.mean(self.tser_arr_all[::-1,:, :], axis=0))
@@ -169,7 +171,8 @@ class AISReview(object):
         self.generate_position()
         self.ionosphere_model = mars.Morgan2008ChapmanLayer()
 
-    def plot_timeseries(self, ax=None, vmin=None, vmax=None, colorbar=False, label=True):
+    def plot_timeseries(self, ax=None, vmin=None, vmax=None,
+            colorbar=False, label=True):
 
         if vmin is None:
             vmin = self.vmin
@@ -227,7 +230,9 @@ class AISReview(object):
 
         if colorbar:
             old_ax = plt.gca()
-            plt.colorbar(cax = celsius.make_colorbar_cax(), ticks=self.cbar_ticks).set_label(r"$Log_{10} V^2 m^{-2} Hz^{-1}$")
+            plt.colorbar(cax = celsius.make_colorbar_cax(),
+                        ticks=self.cbar_ticks).set_label(
+                                r"$Log_{10} V^2 m^{-2} Hz^{-1}$")
             plt.sca(old_ax)
 
     def plot_frequency_range(self, f_min=0., f_max=0.2, ax=None, median=False,
@@ -900,9 +905,8 @@ class AISReview(object):
             plt.sca(ax)
         mex.aspera.plot_els_spectra(self.extent[0], self.extent[1], ax=ax, verbose=self.verbose, **kwargs)
 
-    def main(self, fname=None, show=True,
-                figurename=None, save=False, along_orbit=True, set_cmap=True):
-
+    def main(self, fname=None, show=False,
+                figurename=None, save=False, along_orbit=False, set_cmap=True):
 
         # if len(a.digitization_list) < 100:
         #     return
@@ -924,8 +928,10 @@ class AISReview(object):
             axes[i].yaxis.set_major_locator(
                             mpl.ticker.MaxNLocator(prune='upper', nbins=5,
                             steps=[1,2,5,10]))
-            axes[i].xaxis.set_major_locator(celsius.SpiceetLocator())
-            axes[i].xaxis.set_major_formatter(celsius.SpiceetFormatter())
+            l = celsius.SpiceetLocator()
+            axes[i].xaxis.set_major_locator(l)
+            axes[i].xaxis.set_major_formatter(
+                        celsius.SpiceetFormatter(locator=l))
 
             prev = axes[-1]
 
@@ -973,15 +979,19 @@ class AISReview(object):
         for i in range(n-1):
             plt.setp( axes[i].get_xticklabels(), visible=False )
             axes[i].set_xlim(self.extent[0], self.extent[1])
-            axes[i].xaxis.set_major_locator(celsius.SpiceetLocator())
-            axes[i].xaxis.set_major_formatter(celsius.SpiceetFormatter())
+            l = celsius.SpiceetLocator()
+            axes[i].xaxis.set_major_locator(l)
+            axes[i].xaxis.set_major_formatter(
+                    celsius.SpiceetFormatter(locator=l))
 
-        plt.annotate("Orbit %d, plot start: %s, newest digitization: %s" % (self.orbit, celsius.spiceet_to_utcstr(self.extent[0],fmt='C')[0:17], self._newest),
+        plt.annotate("Orbit %d, plot start: %s, newest digitization: %s" % (
+                self.orbit,
+                celsius.spiceet_to_utcstr(self.extent[0],fmt='C')[0:17], self._newest),
             (0.5, 0.93), xycoords='figure fraction', ha='center')
 
         if save:
             if figurename is None:
-                fname = mex.locate_data_directory() + ('ais_plots/v0.9/%05d/%d.pdf' % ((self.orbit / 1000) * 1000, self.orbit))
+                fname = mex.locate_data_directory() + ('ais_plots/v0.9/%05d/%d.pdf' % ((self.orbit // 1000) * 1000, self.orbit))
             else:
                 fname = figurename
             print('Writing %s' % fname)
@@ -989,6 +999,9 @@ class AISReview(object):
             if not os.path.exists(d) and d:
                 os.makedirs(d)
             plt.savefig(fname)
+
+
+
         if show:
             plt.show()
         else:
@@ -1004,7 +1017,7 @@ class AISReview(object):
             self.modb_along_orbit(ax[1], vmax=100.)
 
             if save:
-                fname = mex.locate_data_directory() + ('ais_plots/A0_v0.9/%05d/%d.pdf' % ((self.orbit / 1000) * 1000, self.orbit))
+                fname = mex.locate_data_directory() + ('ais_plots/A0_v0.9/%05d/%d.pdf' % ((self.orbit // 1000) * 1000, self.orbit))
                 print('Writing %s' % fname)
                 d = os.path.dirname(fname)
                 if not os.path.exists(d):
@@ -1020,36 +1033,27 @@ class AISReview(object):
         # if save:
         #     del self
 
-def main(orbit=8021, close=True, debug=False, fname=None, fig=None, verbose=False, output_fname=None, **kwargs):
+def main(orbit=8021, close=True, debug=False, fname=None,
+        fig=None, verbose=False, output_fname=None, **kwargs):
     if close:
         plt.close('all')
 
     if fname is None:
-        fname = mex.locate_data_directory() + 'marsis/ais_digitizations/%05d/%05d.dig' % ((orbit /1000) * 1000, orbit)
-    print('DB: ', fname)
+        fname = mex.locate_data_directory() + \
+                        'marsis/ais_digitizations/%05d/%05d.dig' % (
+                            (orbit // 1000) * 1000, orbit)
 
     try:
-        a = AISReview(orbit, debug=debug, db_filename=fname, fig=fig, verbose=verbose)
-    except IOError as e:
-        print(e)
-        return
+        print('DB: ', fname)
+        a = AISReview(orbit, debug=debug, db_filename=fname, fig=fig,
+            verbose=verbose)
+        a.main(**kwargs)
+    except Exception as e:
+        print('AISReview Failed: ', e)
+        raise
 
-    a.main(**kwargs)
-
-# def rem_x():
-#     '''Removes superfluous x ticks when multiple subplots  share
-#     their axis
-#    works only in pylab mode but can easily be rewritten
-#     for api use'''
-#     nr_ax=len(gcf().get_axes())
-#     count=0
-#     for z in gcf().get_axes():
-#         if count == nr_ax-1: break
-#             setp(z.get_xticklabels(),visible=False)
-#             count+=1
-
-
-def stacked_f_plots(start=7894, finish=None, show=True, frequencies=[0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 2.0, 3.0]):
+def stacked_f_plots(start=7894, finish=None, show=True,
+            frequencies=[0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 2.0, 3.0]):
     gc.enable()
     if finish is None:
         finish = start + 1
@@ -1062,11 +1066,10 @@ def stacked_f_plots(start=7894, finish=None, show=True, frequencies=[0.2, 0.4, 0
 
     # plt.hot()
 
-
     for o in orbits:
         plt.clf()
         gc.collect()
-        fname = mex.locate_data_directory() + 'marsis/ais_digitizations/%05d/%05d.dig' % ((o /1000) * 1000, o)
+        fname = mex.locate_data_directory() + 'marsis/ais_digitizations/%05d/%05d.dig' % ((o // 1000) * 1000, o)
         try:
             a = AISReview(o, debug=True, db_filename=fname)
         except Exception as e:
