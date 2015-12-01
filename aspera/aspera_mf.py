@@ -16,8 +16,6 @@ import glob
 
 __author__ = "D ANDREWS"
 
-
-
 def plot_aspera_els(start, finish=None, verbose=False, ax=None, colorbar=True,
                         vmin=None, vmax=None, cmap=None, safe=True):
     """docstring for plot_aspera_els"""
@@ -374,6 +372,3 @@ if __name__ == '__main__':
     plt.vlines((start, finish), *plt.ylim())
     plt.xlim(start - 3600., finish + 3600.)
     plt.show()
-
-
-

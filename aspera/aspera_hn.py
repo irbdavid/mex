@@ -1,16 +1,7 @@
 """
 Code for reading ASPERA data prepared in Kiruna by Hans Nilsson & Leif Kalla
 
-
-Remaining to be done:
-x Revise data in view of various calibration issues mentioned below
-x Sort out what is up with odd-looking ELS spectra on some orbits e.g. 7910 - operating mode?
-x Beginning / ends of IMA blocks in particular are not precisely hour boundaries?  By design?
-x Is there any interpolation performed as part of the production of the matlab files?
---David Andrews, dja13@ion.le.ac.uk, Fri Oct 12 16:02:31 CEST 2012
-
 """
-
 
 import pylab as plt
 import numpy as np
