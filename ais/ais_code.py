@@ -2491,7 +2491,8 @@ def get_ais_index(fname=None):
         print(e)
         _generate_ais_index(fname)
 
-def _generate_ais_index(outfile=None, update=True, start_orbit=None, recompute=False):
+def _generate_ais_index(outfile=None, update=True, start_orbit=None,
+    recompute=False):
     import mars
 
     # g = get_ais_coverage()
@@ -2502,8 +2503,8 @@ def _generate_ais_index(outfile=None, update=True, start_orbit=None, recompute=F
 
     field_model = mars.CainMarsFieldModel()
     out = {}
-    start_orbit = None
     if update:
+        start_orbit = None
         with open(outfile, 'rb') as f:
             out = pickle.load(f)
             cout = len(out)
@@ -2511,6 +2512,9 @@ def _generate_ais_index(outfile=None, update=True, start_orbit=None, recompute=F
         if start_orbit is None:
             start_orbit = max([k for k in out if np.any(np.isfinite(out[k]['ne'])) > 0])
         print("Starting update at orbit %d" % start_orbit)
+    else:
+        if start_orbit is None:
+            start_orbit = 2366
 
     for o in range(start_orbit, mex.orbits[celsius.now()].number - 10):
         if start_orbit is not None:
