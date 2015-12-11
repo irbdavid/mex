@@ -574,7 +574,8 @@ def read_ais_file(file_name, verbose=False, debug=True):
 
 
             if nsweeps == 0:
-                if verbose('Empty file detected: %s' % file_name)
+                if verbose:
+                    print('Empty file detected: %s' % file_name)
                 f.close()
                 os.remove(file_name)
                 return []
