@@ -462,7 +462,7 @@ and not overwriting""" % fname)
                         print('Creating %s' % d)
                     os.makedirs(d)
 
-                f = open(fname, 'w')
+                f = open(fname, 'wb')
                 print('Writing %s' % fname)
                 f.write(thepage)
                 f.close()
