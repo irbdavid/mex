@@ -479,12 +479,16 @@ and not overwriting""" % fname)
 
     def _get_local_file(self, time):
         fname = self.local + 'RDR%dX/FRM_AIS_RDR_%d.DAT' % (time // 10, time)
-        if self.verbose:
-            print("Trying: %s" % fname)
         if os.path.exists(fname):
-            if self.verbose:
-                print("... Success!")
-            return fname
+            stats = os.stat(fname)
+            if int(stats[stat.ST_SIZE]) > 0:
+                if self.verbose:
+                    print("Found: %s" % fname)
+                return fname
+            else:
+                if self.verbose:
+                    print("Empty file: %s" % fname)
+                raise IOError("Empty local file for orbit %d" % time)
 
         raise IOError("No local file found for %d" % time)
 
@@ -560,7 +564,7 @@ def read_ais_file(file_name, verbose=False, debug=True):
         try:
             f = open(file_name, 'rb')
             stats = os.stat(file_name)
-            nsweeps = stats[stat.ST_SIZE] / ais_fmt_size
+            nsweeps = int(stats[stat.ST_SIZE] / ais_fmt_size)
             tmp_ionogram = None
             freq_inx = 0
             last_frequency = 1.0E99
@@ -568,7 +572,14 @@ def read_ais_file(file_name, verbose=False, debug=True):
             if verbose:
                 print(file_name, nsweeps, nsweeps/160)
 
-            for i in range(int(nsweeps)):
+
+            if nsweeps == 0:
+                if verbose('Empty file detected: %s' % file_name)
+                f.close()
+                os.remove(file_name)
+                return []
+
+            for i in range(nsweeps):
                 s = f.read(ais_fmt_size)
                 t = struct.unpack(ais_fmt_short, s)
                 this_frequency = t[36]
@@ -748,9 +759,10 @@ class Ionogram(object):
                                             np.deg2rad(self.sza))
 
                     self._model_delays, self._model_frequencies = \
-        mars.Morgan2008ChapmanLayer().ais_response(
-                        sc_altitude=self.mex_altitude,
-                        sc_theta=np.deg2rad(self.sza))
+                            mars.Morgan2008ChapmanLayer().ais_response(
+                                    sc_altitude=self.mex_altitude,
+                                    sc_theta=np.deg2rad(self.sza)
+                            )
                 else:
                     self._model_delays = np.empty(0)
                     self._model_frequencies = np.empty(0)
