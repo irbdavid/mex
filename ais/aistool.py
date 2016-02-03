@@ -140,8 +140,8 @@ class AISTool(object):
         self.cids = []
 
     def set_orbit(self, orbit, strict=True):
+        orbit = int(orbit)
         print('-----------------\nSetting orbit = %d' % orbit)
-
         # Now the "science"
         successfully = False
         attempts = 0
@@ -304,7 +304,7 @@ class AISTool(object):
             return self
 
     def on_click(self, event):
-        # if self.debug: print 'on_click'
+        # if self.debug: print 'on_click
         if event.inaxes == self.ig_ax:
             if (self.status is None):
                 return
@@ -622,11 +622,13 @@ class AISTool(object):
         # Axis formatters need redoing after each cla()
         nf = mpl.ticker.NullFormatter
 
-        self.freq_ax.xaxis.set_major_formatter(celsius.SpiceetFormatter())
+        loc_f = celsius.SpiceetLocator()
+        loc_t = celsius.SpiceetLocator()
+        self.freq_ax.xaxis.set_major_formatter(celsius.SpiceetFormatter(loc_f))
         self.tser_ax.xaxis.set_major_formatter(nf())
 
-        self.freq_ax.xaxis.set_major_locator(celsius.SpiceetLocator())
-        self.tser_ax.xaxis.set_major_locator(celsius.SpiceetLocator())
+        self.freq_ax.xaxis.set_major_locator(loc_f)
+        self.tser_ax.xaxis.set_major_locator(loc_t)
         if debug:
             print('DEBUG: drawing...')
 
@@ -1041,7 +1043,8 @@ class AISTool(object):
         self.current_ionogram.plot(ax=ax, overplot_digitization=False, vmin=self.vmin, vmax=self.vmax, overplot_model=False)
         fname = 'Ionogram-O%d_%s.png' % (mex.orbits[float(self.current_ionogram.time)].number,
             celsius.spiceet_to_utcstr(self.current_ionogram.time, fmt='C'))
-        plt.title(celsius.spiceet_to_utcstr(self.current_ionogram.time, format='C'))
+        plt.title(celsius.spiceet_to_utcstr(self.current_ionogram.time,
+                fmt='C'))
         plt.savefig(fname.replace(':',''))
         plt.close(fig)
 
