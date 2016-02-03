@@ -15,6 +15,8 @@ import matplotlib.cm
 
 import os
 import pickle
+import tempfile
+import subprocess
 
 aspera_scan_time = 12. # check dis.
 
@@ -22,6 +24,8 @@ aspera_scan_time = 12. # check dis.
 # Fudge-fix by stretching, but note we can't then claim exact accuracy of plots
 # down to ~seconds!
 FUDGE_FIX_HANS_IMA_TIME_BUG = True
+
+MAX_FAILED_REMOTE_FILES = 24*10 # Assume all are missing if we find this many errors, to keep things moving
 
 def read_els(start, finish=None, verbose=False):
     """
@@ -38,12 +42,56 @@ def read_els(start, finish=None, verbose=False):
     out = []
     error_files = []
 
+    remote_failed_count = 0
+    # allow_remote = True
+
     while True:
         if et > (finish + 3600.):
             break
 
         dt = celsius.spiceet_to_datetime(et)
-        fname ='%4d/elec%4d%02d%02d%02d00.mat' % (dt.year, dt.year, dt.month, dt.day, dt.hour)
+        fname ='%4d/elec%4d%02d%02d%02d.mat' % (dt.year, dt.year, dt.month,
+                dt.day, dt.hour)
+        remote_path = 'dja@aurora.irf.se:/irf/data/mars/aspera3/mars/elsdata/'
+
+        if not os.path.exists(directory + fname):
+            remote_fname = remote_path + '%04d%02d/%4d%02d%02d%02d0000.mat'
+            remote_fname = remote_fname % (dt.year, dt.month,
+                dt.year, dt.month, dt.day, dt.hour)
+
+            fd, temp_f_name = tempfile.mkstemp(suffix='tmp.mat')
+            command = ('scp', remote_fname, temp_f_name)
+
+            if verbose:
+                print('Fetching %s' % remote_fname)
+            try:
+                # os.spawnvp(os.P_WAIT, command[0], command)
+                subprocess.check_call(command)
+                # reset fail count on success
+                remote_failed_count = 0
+            except subprocess.CalledProcessError as e:
+                remote_failed_count += 1
+                # raise IOError("Retrieval from aurora failed: %s" % str(e))
+                print("Retrieval of %s from aurora failed" % remote_fname)
+                if remote_failed_count > MAX_FAILED_REMOTE_FILES:
+                    print('Maximum failed remote tries reached')
+                    break
+            else:
+                d = os.path.dirname(directory + fname)
+                if d and not os.path.exists(d):
+                    if verbose:
+                        print('Creating %s' % d)
+                    os.makedirs(d)
+
+                command = ('mv', temp_f_name, directory + fname)
+
+                try:
+                    # os.spawnvp(os.P_WAIT, command[0], command)
+                    subprocess.check_call(command)
+                except subprocess.CalledProcessError as e:
+                    print(e)
+                    raise IOError("Error moving file to %s" %
+                        (directory + fname))
 
         try:
             b = loadmat(directory + fname)
@@ -61,23 +109,26 @@ def read_els(start, finish=None, verbose=False):
 
         if verbose:
             print('Read:    %s: %s - %s' % (fname,
-                    celsius.time_convert(b['tElec'][0],  'UTCSTR', 'MATLABTIME'),
-                    celsius.time_convert(b['tElec'][-1], 'UTCSTR', 'MATLABTIME')))
+                    celsius.time_convert(b['elstimes'][0,0],
+                        'UTCSTR', 'MATLABTIME'),
+                    celsius.time_convert(b['elstimes'][0,-1],
+                        'UTCSTR', 'MATLABTIME')))
 
-        if b['EElec'].size < 2:
-            print("""----------------------
-read_els: %s contains data that is effectively 1-dimensional (i.e. not an image)
-shape is %s. Ignoring this!
----------------------""" % (fname, str(b['fElec'].shape)))
-            et += 60. * 60.
-            continue
+#         if b['EElec'].size < 2:
+#             print("""----------------------
+# read_els: %s contains data that is effectively 1-dimensional (i.e. not an image)
+# shape is %s. Ignoring this!
+# ---------------------""" % (fname, str(b['fElec'].shape)))
+#             et += 60. * 60.
+#             continue
 
         et += 60. * 60.
         out.append(b)
 
     return out
 
-def plot_els_spectra(start, finish, sector='SUM', colorbar=True, ax=None, blocks=None,
+def plot_els_spectra(start, finish, sector='SUM', colorbar=True,
+                        ax=None, blocks=None,
                         return_val=None, verbose=False, check_times=True,
                         vmin=None, vmax=None,
                         cmap=None, norm=None, die_on_empty_blocks=False,
@@ -100,6 +151,13 @@ def plot_els_spectra(start, finish, sector='SUM', colorbar=True, ax=None, blocks
         longElec (1, 215)
         EElec (128, 1)
 
+    New versions:
+        elslevels (128, 112)
+        elsmatrix (128, 16, 783)
+        elstimes (1, 783)
+        elssectors (1, 16)
+        elsleveltimes (1, 112)
+        elsdeltatimes (128, 112)
     """
 
     if not blocks:
@@ -118,62 +176,68 @@ def plot_els_spectra(start, finish, sector='SUM', colorbar=True, ax=None, blocks
 
     last_finish = -9E99
 
-    label = r'Flux / $cm^{-2}s^{-1}$'
+    # label = r'Flux / $cm^{-2}s^{-1}$'
+    label = 'Counts'
 
     # Make sure we set the ylimits correctly by tracking min and max energies
-    min_energy = 60000.
-    max_energy = -10.
+    min_energy = 1e99
+    max_energy = -1e99
 
     cbar_ticks = np.array((7,8,9,10,11))
 
     # Establish function to handle the data
     if isinstance(sector, str):
         if sector.lower() == 'mean':
-            process = lambda x: np.mean(x,0)
-            if vmin is None:
-                vmin = 7.
-            if vmax is None:
-                vmax = 11.
+            process = lambda x: np.nanmean(x,1)
+            # if vmin is None:
+            #     vmin = 7.
+            # if vmax is None:
+            #     vmax = 11.
 
         elif sector.lower() == 'sum':
-            process = lambda x: np.sum(x,0)
-            if vmin is None:
-                vmin = 7. + 1.
-            if vmax is None:
-                vmax = 11. + 1.
-            cbar_ticks += 1
+            process = lambda x: np.nansum(x,1)
+            # if vmin is None:
+            #     vmin = 7. + 1.
+            # if vmax is None:
+            #     vmax = 11. + 1.
+            # cbar_ticks += 1
         else:
             raise ValueError('Unrecognized argument for sector: %s' % sector)
     else:
-        process = lambda x: x[sector,...]
-        if vmin is None:
-            vmin = 7.
-        if vmax is None:
-            vmax = 11.
+        process = lambda x: x[:,sector,:]
+        # if vmin is None:
+        #     vmin = 7.
+        # if vmax is None:
+        #     vmax = 11.
+
+    if vmin is None: vmin=0
+    if vmax is None: vmax=4
 
     if not norm:
         norm = plt.Normalize(vmin, vmax, clip=False)
 
+    norm = None
+
     for b in blocks:
         # min(abs()) to account for negative values in E table
-        extent = [celsius.matlabtime_to_spiceet(b['tElec'][0]),
-                        celsius.matlabtime_to_spiceet(b['tElec'][-1]),
-                        min(abs(b['EElec'])),
-                        max(b['EElec'])]
+        extent = [celsius.matlabtime_to_spiceet(np.min(b['elstimes'])),
+                        celsius.matlabtime_to_spiceet(np.max(b['elstimes'])),
+                        np.min(np.abs(b['elslevels'])),
+                        np.max(b['elslevels'])]
 
         if extent[2] < min_energy:
             min_energy = extent[2]
 
         if extent[3] > max_energy:
             max_energy = extent[3]
+        print(extent)
+        # if check_times:
+        #     spacing = 86400.*np.mean(np.diff(b['tElec']))
+        #     if spacing > 15.:
+        #         raise ValueError("Resolution not good? Mean spacing = %fs " % spacing )
 
-        if check_times:
-            spacing = 86400.*np.mean(np.diff(b['tElec']))
-            if spacing > 15.:
-                raise ValueError("Resolution not good? Mean spacing = %fs " % spacing )
-
-        img = process(b['fElec'])
-        img[img < 10.] = np.min(img)
+        img = process(b['elsmatrix'])
+        # img[img < 10.] = np.min(img)
         img = np.log10(img)
 
         if verbose:
@@ -181,12 +245,16 @@ def plot_els_spectra(start, finish, sector='SUM', colorbar=True, ax=None, blocks
             # print 'Min, mean, max = ', np.nanmin(img), np.nanmean(img), np.nanmax(img)
 
         if extent[0] < last_finish:
-            raise ValueError("Blocks overlap: Last finish = %f, this start = %f" % (
-                                                            last_finish, extent[0]))
+            s = "Blocks overlap: Last finish = %f, this start = %f" % (
+                                    last_finish, extent[0])
+            if check_times:
+                raise ValueError(s)
+            else:
+                print(s)
 
-        e = extent[2]
-        extent[2] = extent[3]
-        extent[3] = e
+        # e = extent[2]
+        # extent[2] = extent[3]
+        # extent[3] = e
 
         ims.append( plt.imshow(img, extent=extent, origin='upper',
                     interpolation='nearest',
@@ -205,10 +273,13 @@ def plot_els_spectra(start, finish, sector='SUM', colorbar=True, ax=None, blocks
     else:
         plt.ylim(1E0, 1E4)
         # need to create an empty image so that colorbar functions
-        cbar_im = plt.imshow(np.zeros((1,1)), cmap=cmap, norm=norm, visible=False)
+        cbar_im = plt.imshow(np.zeros((1,1)), cmap=cmap, norm=norm,
+                visible=False)
 
+    plt.ylim(min_energy, max_energy)
     plt.yscale('log')
-    celsius.ylabel('E / eV')
+    # plt.ylabel('E / eV')
+    print('ELS PLOT: Time is not accurate to more than ~+/- 4s for now.')
 
     if colorbar:
         if ims:
@@ -224,6 +295,8 @@ def plot_els_spectra(start, finish, sector='SUM', colorbar=True, ax=None, blocks
             return blocks
         else:
             print('Unrecognised return_value = ' + str(return_value))
+
+
 
     del blocks
     del ims
@@ -329,17 +402,60 @@ principal blocks being read by extending each dictionary."""
 
     directory = mex.data_directory + 'aspera/nilsson/Mars_mat_files4/'
 
+    remote_path = 'dja@aurora.irf.se:/irf/data/mars/aspera3/Mars_mat_files4/'
+
     et = start - 3600. #one second before
 
     out = []
     error_files = []
+    remote_failed_count = 0
 
     while True:
         if et > (finish + 3600.):
             break
 
         dt = celsius.spiceet_to_datetime(et)
-        fname = dataset.lower() + '%4d%02d%02d%02d00.mat' % (dt.year, dt.month, dt.day, dt.hour)
+        fname = dataset.lower() + '%4d%02d%02d%02d00.mat' % (dt.year, dt.month,
+                dt.day, dt.hour)
+
+        if not os.path.exists(directory + fname):
+            remote_fname = remote_path + fname
+
+            fd, temp_f_name = tempfile.mkstemp(suffix='tmp.mat')
+            command = ('scp', remote_fname, temp_f_name)
+
+            if verbose:
+                print('Fetching %s' % remote_fname)
+            try:
+                # os.spawnvp(os.P_WAIT, command[0], command)
+                subprocess.check_call(command)
+
+                # reset to zero on success
+                remote_failed_count = 0
+
+            except subprocess.CalledProcessError as e:
+                remote_failed_count += 1
+                # raise IOError("Retrieval from aurora failed: %s" % str(e))
+                print("Retrieval of %s from aurora failed" % remote_fname)
+                if remote_failed_count > MAX_FAILED_REMOTE_FILES:
+                    print('Maximum failed remote tries reached')
+                    break
+            else:
+                d = os.path.dirname(directory + fname)
+                if d and not os.path.exists(d):
+                    if verbose:
+                        print('Creating %s' % d)
+                    os.makedirs(d)
+
+                command = ('mv', temp_f_name, directory + fname)
+
+                try:
+                    # os.spawnvp(os.P_WAIT, command[0], command)
+                    subprocess.check_call(command)
+                except subprocess.CalledProcessError as e:
+                    print(e)
+                    raise IOError("Error moving file to %s" %
+                        (directory + fname))
 
         try:
             out.append(loadmat(directory + fname))
@@ -375,7 +491,8 @@ principal blocks being read by extending each dictionary."""
 
     return out
 
-def plot_ima_spectra(start, finish, species=['H','O','O2'], colorbar=True, ax=None, blocks=None,
+def plot_ima_spectra(start, finish, species=['H','O','O2'], colorbar=True,
+                        ax=None, blocks=None,
                         check_times=True, return_val=None, verbose=False,
                         check_overlap=True, vmin=2, vmax=7., raise_all_errors=False,
                         cmap=None, norm=None, die_on_empty_blocks=False,
@@ -525,9 +642,10 @@ def plot_ima_spectra(start, finish, species=['H','O','O2'], colorbar=True, ax=No
             # print 'Fraction good = %2.0f%%' % (np.float(np.sum(np.isfinite(img))) / (img.size) * 100.)
             # print 'Min, mean, max = ', np.min(img), np.mean(img), np.max(img)
 
-        if extent[0] < last_finish:
-            raise ValueError("Blocks overlap: Last finish = %f, this start = %f" % (
-                                                            last_finish, extent[0]))
+        if check_overlap and (extent[0] < last_finish):
+            raise ValueError(
+                "Blocks overlap: Last finish = %f, this start = %f" %
+                                (last_finish, extent[0]))
 
         if FUDGE_FIX_HANS_IMA_TIME_BUG:
             # print extent, last_finish
