@@ -1350,8 +1350,8 @@ class Ionogram(object):
                 frequency_range = (0.3, 2.0)
             else:
                 # frequency_range = (1.0, 4.)# never really higher than 4 Mhz
-                frequency_range =(1.0,
-                        ne_to_fp(1.5 * 1.58E5 * np.cos(np.deg2rad(sza))**0.5) / 1E6)
+                frequency_range =(1.25,
+                        ne_to_fp(2. * 1.58E5 * np.cos(np.deg2rad(sza))**0.5) / 1E6)
                 if frequency_range[1] < 2.:
                         frequency_range = (frequency_range[0], 2.)
                 # Factor of 1.3 to give upper sensible limit
@@ -1367,14 +1367,27 @@ class Ionogram(object):
         ground_delay = 2. * pos[0] / speed_of_light_kms
 
         # print "Expected delay = %f ms" % delay
-        if (delay < delay_range[0]) | (delay > delay_range[1]):
-              return "Auto-ionosphere: Echo not expected within %f - %f ms" % (delay_range[0] * 1e3, delay_range[1] * 1e3)
+        # if (delay < delay_range[0]) | (delay > delay_range[1]):
+        #       return "Auto-ionosphere: Echo not expected within %f - %f ms" \
+        # % (delay_range[0] * 1e3, delay_range[1] * 1e3)
 
         # Introduce a bias to larger delays at higher f = dispersion effect
-        d.set_trace(np.array((delay - (frequency_range[1] - frequency_range[0])/2.77*1E-3,
-                                                    delay )),
+        # d.set_trace(
+        #     np.array(
+        #         (delay - (frequency_range[1] - frequency_range[0])/2.77*1E-3,
+        #         delay)
+        #     ),
+        #     np.array(frequency_range) * 1E6,
+        #     method="AUTO-INTERMEDIATE")
+
+        d.set_trace(
+            np.array(
+                (2. * (pos[0] - 200.) / speed_of_light_kms,
+                2. * (pos[0] - 25.) / speed_of_light_kms)
+                ),
             np.array(frequency_range) * 1E6,
             method="AUTO-INTERMEDIATE")
+
 
         self._intermediate_trace = (np.array(
             (delay - (frequency_range[1] - frequency_range[0])/2.77*1E-3, delay )),
