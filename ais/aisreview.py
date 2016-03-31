@@ -11,6 +11,7 @@ import gc
 import sys
 
 import mex
+import mex.ais
 import spiceypy
 from . import ais_code
 import celsius

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import celsius
 import mex
 import mex.ais
-from .aisreview import main
+from mex.ais.aisreview import main
 
 import sys
 import gc
@@ -109,8 +109,9 @@ if __name__ == '__main__':
     exception_list = {}
     repeat = True
 
-    start = determine_last_processed_orbit()
-    start = 1840
+    start = determine_last_processed_orbit() - 100
+    #start = 1840
+    start = 14935
     finish = mex.orbits[celsius.now() - 86400. * 50.].number
 
     if len(sys.argv) > 1:
