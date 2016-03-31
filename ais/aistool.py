@@ -23,7 +23,7 @@ import imp
 
 __author__ = "David Andrews"
 __copyright__ = "Copyright 2015, David Andrews"
-__credits__ = ["David Andrews, Olivier Witasse"]
+__credits__ = ["David Andrews"]
 __license__ = "MIT"
 __version__ = "0.1"
 __maintainer__ = "David Andrews"
@@ -38,7 +38,7 @@ class AISTool(object):
     """docstring for AISTool"""
     def __init__(self, orbit=8020, debug=False, digitization_db=None, load=True,
         auto=True,
-        vmin=-16.0, vmax=-9.0, mobile=False, figure_number=1, timeseries_frequency=0.3):
+        vmin=-16.0, vmax=-11.0, mobile=False, figure_number=1, timeseries_frequency=0.3):
 
         global ais_tool_instance
         ais_tool_instance = super(AISTool, self).__init__()
@@ -65,9 +65,7 @@ class AISTool(object):
         self._bad_keypress = False
         self._messages = []
         self._message_counter = 0
-        # plt.gray()
-        plt.hot()
-        # plt.set_cmap(mpl.cm.Spectral_r)
+        plt.set_cmap('viridis')
         self.selected_plasma_lines = []
         self.selected_cyclotron_lines = []
 
@@ -95,7 +93,7 @@ class AISTool(object):
         self.freq_ax = plt.subplot(g[3,:])
         self.ig_ax   = plt.subplot(g[5,0])
         self.ne_ax   = plt.subplot(g[5,1])
-        self.cbar_ax = plt.gcf().add_axes([0.45,  0.04, 0.1, 0.01])
+        self.cbar_ax = plt.gcf().add_axes([0.45,  0.04, 0.3, 0.01])
 
         # self.fp_local_figure_number = figure_number + 1
         # self.td_cyclotron_figure_number = figure_number + 2
@@ -103,8 +101,8 @@ class AISTool(object):
         self.fp_local_figure_number = False
         self.td_cyclotron_figure_number = False
 
-        self.stored_color = 'blue'
-        self.interactive_color = self.stored_color
+        self.stored_color = 'white'
+        self.interactive_color = 'red'
 
         # All the connections get set up:
         self.cids = []
@@ -116,6 +114,8 @@ class AISTool(object):
                                             self.on_release))
         self.cids.append(self.figure.canvas.mpl_connect('motion_notify_event',
                                             self.on_move))
+        self.cids.append(self.figure.canvas.mpl_connect('scroll_event',
+                                            self.on_scroll))
 
         self.message("Initialized")
 
@@ -450,6 +450,25 @@ class AISTool(object):
             elif self.status == 'editing':
                 pass # fix selected point to position
 
+    def on_scroll(self, event):
+        print("SCROLL INNIT")
+        if self.status == 'plasma_lines':
+            fp = self.current_ionogram.digitization.fp_local
+            if not np.isfinite(fp):
+                self.current_ionogram.digitization.set_morphology_fp_local(
+                    0.5e6, np.inf, 'scroll_guess')
+            else:
+                new_fp = (event.step * 0.005 + 1.) * fp
+                print('SCROLL: ', fp, new_fp)
+                self.current_ionogram.digitization.set_morphology_fp_local(
+                    new_fp, new_fp * 0.01, 'scroll'
+                )
+            self.update()
+
+        # elif self.status == 'cyclotron_lines':
+
+
+
     def auto_fit(self, plasma_lines=True, cyclotron_lines=True,
                     ionosphere=True, ground=True, new_digitization=False, update=True):
         # self.message('AUTO_FIT disabled!!')
@@ -495,10 +514,12 @@ class AISTool(object):
 
         if debug:
             print('DEBUG: Plotting ionogram...')
+
         self.current_ionogram.interpolate_frequencies() # does nothing if not required
         self.current_ionogram.plot(ax=self.ig_ax, colorbar=False,
             vmin=self.vmin, vmax=self.vmax,
-            color=self.stored_color, verbose=debug,
+            color='white', verbose=debug,
+            overplot_digitization=True,
             overplot_model=False, overplot_expected_ne_max=True)
         if debug:
             print('DEBUG: ... done')
@@ -506,24 +527,25 @@ class AISTool(object):
             ticks=mpl.ticker.MultipleLocator())
         plt.sca(self.cbar_ax)
         plt.xlabel(r'spec. dens. / $V^2m^{-2}Hz^{-1}$')
+        plt.sca(self.ig_ax)
 
         # Plasma and cyclotron lines
         if len(self.selected_plasma_lines) > 0:
-            plt.sca(self.ig_ax)
             extent = plt.ylim()
             for v in self.selected_plasma_lines:
-                plt.vlines(v, extent[0], extent[1], 'blue')
+                plt.vlines(v, extent[0], extent[1], 'red')
 
         if len(self.selected_cyclotron_lines) > 0:
-            plt.sca(self.ig_ax)
             extent = plt.xlim()
             for v in self.selected_cyclotron_lines:
-                plt.hlines(v, extent[0], extent[1], 'blue')
+                plt.hlines(v, extent[0], extent[1], 'red')
 
         f = self.current_ionogram.digitization.morphology_fp_local
         if np.isfinite(f):
-            plt.vlines(np.arange(1., 5.) * f / 1E6, plt.ylim()[0], plt.ylim()[1],
-                            color='g', lw=1.)
+            plt.vlines(
+                np.arange(1., 5.) * f / 1E6, plt.ylim()[0],
+                plt.ylim()[1],
+                color='red', lw=1.)
 
         # If current digitization is invertible, do it and plot it
         if self.current_ionogram.digitization:
@@ -680,78 +702,6 @@ class AISTool(object):
         else:
             raise mex.MEXException("No digitization database loaded")
         return self
-
-    def load_from_pickle(self, fname):
-        with open(fname) as f:
-            self.ionogram_list = pickle.load(f)
-            self.orbit = 1000
-
-            self.ionogram_list = sorted(self.ionogram_list, key=lambda x: np.sum(x.data))
-
-            for e, i in enumerate(self.ionogram_list):
-                i.time = mex.orbits[self.orbit].start + e * ais.ais_spacing_seconds
-                i.interpolate_frequencies()
-
-        self.digitization_db = DigitizationDB(load=False)
-        # Now we do some processing, generate a data cube for the orbit
-        # and generate the timeseries
-        self.ionogram_list[0].interpolate_frequencies()
-        no_linear_frequencies = self.ionogram_list[0].data.shape[1]
-        self.extent = (self.ionogram_list[0].time, self.ionogram_list[-1].time,
-                        min(self.ionogram_list[0].frequencies) / 1.0E6,
-                        max(self.ionogram_list[0].frequencies) / 1.0E6)
-        no_ionograms_expected = ((self.extent[1] - self.extent[0])
-                                                        / ais.ais_spacing_seconds + 1)
-        no_ionograms_expected = int(round(no_ionograms_expected))
-        self.tser_arr_all = np.empty((ais.ais_number_of_delays, no_linear_frequencies,
-            no_ionograms_expected))
-
-        if self.debug:
-            print('Creating data cube (filling empties)')
-            print('Expected number of ionograms = %d, found = %d' % (
-                no_ionograms_expected,len(self.ionogram_list)))
-        ilast = None
-        empty_count = 0
-        for i, ig in enumerate(self.ionogram_list):
-            ignum = int( round((ig.time - self.extent[0]) / ais.ais_spacing_seconds ))
-            if ignum > no_ionograms_expected:
-                raise mex.MEXException("Out of range %d, %d, %d"
-                    % (len(self.ionogram_list), ignum, no_ionograms_expected))
-
-            ig.interpolate_frequencies()
-            self.tser_arr_all[:,:,ignum] = ig.data
-            if ilast is not None:
-                if (ignum != (ilast + 1)):
-                    empty_count += 1
-                    self.tser_arr_all[:,:,ilast+1:ignum-1] = -9E99
-            ilast = ignum
-
-        if empty_count:
-            print('Found %d empty ionograms / missing data' % empty_count)
-
-        # Hold the update for now
-        self.set_ionogram(self.ionogram_list[0], update=False)
-
-        errs = np.geterr()
-        np.seterr(divide='ignore')
-        # self.tser_arr = np.log10(np.mean(self.tser_arr_all[::-1,:, :], axis=0))
-        self.tser_arr = np.mean(np.log10(self.tser_arr_all[::-1,:, :]), axis=0)
-        self.tser_arr_all = np.log10(self.tser_arr_all)
-        np.seterr(**errs)
-
-        # Trajectory info
-        self.trajectory = {}
-        self.trajectory['t'] = np.arange(self.extent[0], self.extent[1], 60.)
-        pos = mex.iau_mars_position(self.trajectory['t'])
-        self.trajectory['pos'] = pos / mex.mars_mean_radius_km
-
-        self.message("Loaded from %s" % fname)
-
-        self.status = None
-        self.update()
-        return self
-
-
 
     def on_keypress(self, event):
         """AISTool key table:
@@ -1007,14 +957,15 @@ class AISTool(object):
             self.key_w()
         elif mic == 1: # Done plasma lines, start tracing
             self.key_w()
-            self.key_t(retain=True)
+            self.key_t(retain=False)
         elif mic == 2: # Done tracing, start cyclotron
-            self.key_t(retain=True)
+            # self.key_t(retain=False)
             self.key_c()
-        elif mic == 3: # Done cycltron, start ground
+        # elif mic == 3: # Done cycltron, start ground
+        #     self.key_c()
+        #     self.key_g()
+        elif mic == 3: # Done ground, save and next, set mic = 0
             self.key_c()
-            self.key_g()
-        elif mic == 4: # Done ground, save and next, set mic = 0
             self.key_s()
             try:
                 self.key_n()
@@ -1029,7 +980,7 @@ class AISTool(object):
             raise mex.MEXException(
                 "minimum_interaction_mode_counter should be between 0 and 5")
         mic = mic + 1
-        if mic > 4:
+        if mic > 3:
             mic = 1
         self.minimum_interaction_mode_counter = mic
         return self
@@ -1082,55 +1033,5 @@ if __name__ == '__main__':
 
     # global ais_tool_instance
 
-    ais_tool_instance = AISTool(debug = True, mobile=False, orbit=orbit, digitization_db=db)
-
-    # try:
-    #     plt.close('all')
-    #     exception_list = {}
-    #     orbit = 8020
-    #
-    #     if len(sys.argv) > 1:
-    #         orbit = int(sys.argv[1])
-    #     a = AISTool(debug = True, vmin=-16, vmax=-13, mobile=False, orbit=orbit)
-    #     # aistool = AISTool
-    #
-    #     orbits = range(7902, 8049)
-    #     done_orbits = [8020, 8021]
-    #
-    #     orbits = [orbit]
-    #     orbits = [o for o in orbits if o not in done_orbits]
-    #
-    #     t0 = celsius.now()
-    #
-    #
-    #     for o in orbits:
-    #         for i in range(5):
-    #             print ''
-    #         try:
-    #             print 'ORBIT = %d' % o
-    #             print 'Elapsed: ', (celsius.now() - t0) / 3600.
-    #             if a.orbit is not o:
-    #                 a.set_orbit(o)
-    #             a.update()
-    #             a.key_q()
-    #         except Exception, e:
-    #             print '=' * 20
-    #             print e
-    #             print '=' * 20
-    #             exception_list[celsius.now()] = e
-    #
-    #     t1 = celsius.now()
-    #     for i in range(5):
-    #         print ''
-    #
-    #     print "Exceptions encountered:"
-    #     for k, v in exception_list.iter_items():
-    #         print k, v
-    #
-    #     for i in range(5):
-    #         print ''
-    #
-    #     print 'Elapsed time:'
-    #     print (t1 - t0) / (3600.)
-    # except Exception, e:
-    #     print e
+    ais_tool_instance = AISTool(debug=False, mobile=False,
+        orbit=orbit, digitization_db=db)

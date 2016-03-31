@@ -110,7 +110,7 @@ if __name__ == '__main__':
     repeat = True
 
     start = determine_last_processed_orbit()
-    start = 1840
+    # start = 1840
     finish = mex.orbits[celsius.now() - 86400. * 50.].number
 
     if len(sys.argv) > 1:

@@ -180,8 +180,9 @@ def mso_orbit(orbit_number, res=60):
     plt.plot(pos[1,inbound],  pos[2,inbound], 'ko')
     plt.plot(pos[1,outbound],  pos[2,outbound], 'ko', mfc='white')
 
-
     plt.subplots_adjust(wspace=0.3, right=0.96, top=0.94, bottom=0.07)
+
+    # return dict(pos=pos, rho=rho, t)
 
 def setup_lat_lon_ax(ax=None, label=True, tickspacing=30.):
     if ax is None:

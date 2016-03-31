@@ -1175,7 +1175,8 @@ if __name__ == '__main__':
         fname = None
         save = False
 
-    main(orbit, figurename=fname, save=save, show=True, along_orbit=False, verbose=True, debug=True)
+    main(orbit, figurename=fname, save=save, show=True,
+        along_orbit=False, verbose=True, debug=True)
     # ao_plot(orbit)
     plt.show()
     # plt.savefig("/Users/dave/Desktop/9747.pdf", dpi=20)

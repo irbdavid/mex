@@ -299,7 +299,7 @@ def modpos(x, radians=False, min=0.):
         return (x % (2. * np.pi) + 2. * np.pi) % (2. * np.pi)
     return (x % (360.) + 360.) % 360.
 
-def shit_out_info(f):
+def describe_func_call(f):
     def fint(*args, **kwargs):
         print('~'*5)
         print('Function: ' + f.__name__)
