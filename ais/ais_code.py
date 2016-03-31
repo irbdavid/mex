@@ -672,9 +672,9 @@ class Ionogram(object):
             # raise ValueError("Can't check if we don't know what the time is... [self.time is None]")
 
     def plot(self, ax=None, colorbar=True, vmin=ais_vmin, vmax=ais_vmax,
-                    color='blue', overplot_digitization=True, title=None,
+                    color='blue', overplot_digitization=False, title=None,
                     errors=True, show_thresholded_data=False, no_title=False,
-                    overplot_model=True, altitude_range=None, verbose=False,
+                    overplot_model=False, altitude_range=None, verbose=False,
                     labels=True, overplot_expected_ne_max=False):
         """docstring for Ionogram plot"""
 
@@ -1390,7 +1390,8 @@ class Ionogram(object):
 
 
         self._intermediate_trace = (np.array(
-            (delay - (frequency_range[1] - frequency_range[0])/2.77*1E-3, delay )),
+            (delay - (frequency_range[1] - frequency_range[0])/2.77*1E-3,
+                    delay )),
             np.array(frequency_range) * 1E6)
 
         m = self.refine_trace(width=91.4 * 2. * 1E-6 )
@@ -1940,7 +1941,7 @@ class IonogramDigitization:
         self.td_cyclotron_error = d['td_cyclotron_error']
 
         self.traced_delay = np.array(d['traced_delay'])
-        self.traced_frequency = np.array(d['traced_delay'])
+        self.traced_frequency = np.array(d['traced_frequency'])
 
     def delete_trace(self):
         self.traced_delay       = np.empty(0)
@@ -2004,19 +2005,22 @@ class IonogramDigitization:
 
         self._compute_fp_local()
 
-    def set_integrated_fp_local(self, integrated_fp_local, integrated_fp_local_error):
+    def set_integrated_fp_local(self, integrated_fp_local,
+                                    integrated_fp_local_error):
         self.integrated_fp_local       = integrated_fp_local
         self.integrated_fp_local_error = integrated_fp_local_error
         self._compute_fp_local()
 
-    def set_cyclotron(self, td_cyclotron, td_cyclotron_error, method, selected_t=None):
+    def set_cyclotron(self, td_cyclotron, td_cyclotron_error, method,
+                            selected_t=None):
         self.td_cyclotron = td_cyclotron
         self.td_cyclotron_error = td_cyclotron_error
         self.td_cyclotron_method = str(method)
         if selected_t is not None:
             self.td_cyclotron_selected_t = selected_t
 
-    def set_trace(self, traced_delay, traced_frequency, method, traced_intensity=None):
+    def set_trace(self, traced_delay, traced_frequency, method,
+                            traced_intensity=None):
         a = np.argsort(traced_frequency)
         self.traced_delay = traced_delay[a]
         self.traced_frequency = traced_frequency[a]
@@ -2026,14 +2030,6 @@ class IonogramDigitization:
 
     def set_ground(self, ground):
         self.ground = ground
-
-#     def set_velocity_proxy(self, bin):
-#         """velocity proxy is dx / dt, where dt is maximum dt of first plasma line,
-# dx is the scale size of the local plasma oscillation, taken to be 40 m
-# (tip-tip antenna length)."""
-#         if bin < 0:
-#             self.velocity_proxy = 40E-3 / ais_delays[0] # km/s
-#         self.velocity_proxy = 40E-3 / ais_delays[bin]
 
     def __lt__(self, other):
         return self.time < other.time
@@ -2132,13 +2128,14 @@ class DigitizationDB():
     def __init__(self, orbit=None, filename=None, verbose=False, load=True):
 
         self.filename = 'tmp.dat'
-        if filename:
-            self.filename = filename
 
         if orbit:
             self.filename = (mex.data_directory +
                                 "marsis/ais_digitizations/%05d/%05d.dig" %
                                 ((orbit // 1000) * 1000, orbit))
+        if filename:
+            self.filename = filename
+
 
         self._digitization_list = []
         self.verbose = verbose
@@ -2278,7 +2275,7 @@ def compute_all_digitizations(orbit, filename=None, verbose=False):
     saved_count = 0
     # print len(db)
     for e, i in enumerate(ionogram_list):
-        if verbose: print(i)
+        if verbose: print('-'*10)
         i.digitization = IonogramDigitization(i)
         if not 'failed' in i.calculate_fp_local().lower(): fp_local_counter += 1
         if not 'failed' in i.calculate_ground_trace().lower(): ground_counter += 1
@@ -2290,6 +2287,8 @@ def compute_all_digitizations(orbit, filename=None, verbose=False):
             # print i.digitization.time, i.digitization.timestamp, i.digitization.fp_local
             i.digitization.set_timestamp()
             db.add(i.digitization)
+            if verbose: print(i)
+
 
     db.write()
     result = '%d: Processed %d Ionograms: FP = %d, TD = %d, REFL = %d, GND = %d' % (orbit,
