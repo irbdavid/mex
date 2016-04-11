@@ -2298,7 +2298,8 @@ def compute_all_digitizations(orbit, filename=None, verbose=False):
     return result
 
 
-def produce_ne_b_file(orbits, file_name='DJA_MARSIS_ne_b_$DATE.txt', use_ais_index=False):
+def produce_ne_b_file(orbits, file_name='DJA_MARSIS_ne_b_$DATE.txt',
+        use_ais_index=False):
     """docstring for produce_ne_b_file"""
 
     if '$DATE' in file_name:
@@ -2348,7 +2349,7 @@ def produce_ne_b_file(orbits, file_name='DJA_MARSIS_ne_b_$DATE.txt', use_ais_ind
             if write:
                 orb_records += 1
                 no_records += 1
-                f.write('%s %f %f %f %f\n' % (celsius.spiceet_to_utcstr(d.time, precision=0), ne, ne_err, b, b_err))
+                f.write('%s %f %f %f %f %f\n' % (celsius.spiceet_to_utcstr(d.time, precision=0), ne, ne_err, b, b_err, ne_max))
 
         last_orbit += 1
         tmp_orbit_list.append(o)
@@ -2360,7 +2361,7 @@ def produce_ne_b_file(orbits, file_name='DJA_MARSIS_ne_b_$DATE.txt', use_ais_ind
         del db
 
     f.close()
-    print('Wrote %d records' % (no_records))
+    print('Wrote %d records to %s' % (no_records, file_name))
 
 def write_yearly_ne_b_files(years=None, directory='.'):
     if years is None:
