@@ -64,6 +64,7 @@ DIGITIZATION_ARRAY_KEYS  = ['traced_delay', 'traced_frequency', 'traced_intensit
                                         'morphology_fp_local_selected_f', 'td_cyclotron_selected_t']
 
 LAST_KNOWN_GOOD_AIS_ORBIT = 12216
+ANTENNA_DEPLOYMENT = 1814
 
 # Frequency ranges where MARSIS radiated power > 30dB, according to Jordan '08
 # Tuple of (start, stop) for each band (in MHz)
@@ -2304,7 +2305,7 @@ def produce_ne_b_file(orbits, file_name='DJA_MARSIS_ne_b_$DATE.txt', use_ais_ind
         file_name = file_name.replace('$DATE', celsius.utcstr(celsius.now(),'ISOC')[:10])
 
     f = open(file_name, 'w')
-    f.write('# <UTC Time> <Ne / cm^-3> <Ne Error / cm^-3> <B / nT> <B Error / nT>\n')
+    f.write('# <UTC Time> <Ne / cm^-3> <Ne Error / cm^-3> <B / nT> <B Error / nT> <Ne_max / cm^-3> \n')
     f.write("""# Note: For Ne < 600 or B > 70, these values should be considered to be upper and lower limits, respectively\n""")
     no_records = 0
     orb_records = 0
@@ -2324,6 +2325,7 @@ def produce_ne_b_file(orbits, file_name='DJA_MARSIS_ne_b_$DATE.txt', use_ais_ind
             ne_err = np.nan
             b = np.nan
             b_err = np.nan
+            ne_max = np.nan
 
             if hasattr(d, 'fp_local'):
                 write = True
@@ -2338,6 +2340,10 @@ def produce_ne_b_file(orbits, file_name='DJA_MARSIS_ne_b_$DATE.txt', use_ais_ind
                 b_err *= 1e9
                 b_err = np.abs(b_err)
                 # b_err = b - td_to_modb(d.td_cyclotron + d.td_cyclotron_error) * 1.E9
+
+            if hasattr(d, 'traced_frequency'):
+                if d.traced_frequency.size > 1:
+                    ne_max = fp_to_ne(d.traced_frequency[-1])
 
             if write:
                 orb_records += 1
@@ -2517,7 +2523,7 @@ def get_ais_index(fname=None):
         _generate_ais_index(fname)
 
 def _generate_ais_index(outfile=None, update=True, start_orbit=None,
-    recompute=False):
+                recompute=False):
     import mars
 
     # g = get_ais_coverage()
