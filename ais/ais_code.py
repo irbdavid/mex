@@ -822,7 +822,8 @@ class Ionogram(object):
             if np.isfinite(d.td_cyclotron):
                 xmin, xmax = plt.xlim()
                 ymin, ymax = np.sort(plt.ylim())
-                td = np.arange(0., ymax, d.td_cyclotron * 1.0E3)
+                # td = np.arange(0., ymax, d.td_cyclotron * 1.0E3)
+                td = np.arange(1., 5.) * d.td_cyclotron * 1e3
                 if td.shape[0] > 1:
                     plt.hlines(td, xmin, xmax, color=color,
                                     linestyle='dashed', lw=2.)
@@ -1114,7 +1115,8 @@ class Ionogram(object):
 
         return msg
 
-    def calculate_td_cyclotron(self, figure_number=False, threshold=3, ax=False):
+    def calculate_td_cyclotron(self, figure_number=False, threshold=3,
+                    ax=False):
         self.digitization.delete_td_cyclotron()
         if figure_number:
             f = plt.figure(figure_number)
@@ -1225,115 +1227,6 @@ class Ionogram(object):
                 *plt.ylim(),  colors='red',linestyle='dotted')
 
         return msg
-
-    # def calculate_td_cyclotronx(self, figure_number=False, threshold=1E-14, ax=False):
-    #     self.digitization.delete_td_cyclotron()
-    #     if figure_number:
-    #         f = plt.figure(figure_number)
-    #         plt.clf()
-    #
-    #     if ax:
-    #         plt.sca(ax)
-    #         plt.cla()
-    #
-    #     if not hasattr(self, '_cyc_data'):
-    #         self.generate_binary_arrays()
-    #
-    #     fmax_bin, = np.where((self.frequencies > 0.3E6))
-    #     fmax_bin = fmax_bin[0]
-    #     td_min_bin = 2
-    #     # Ignore the first few ms: 5 bins ignored = delays below 0.62 ms
-    #     # scaled = np.sum(self._cyc_data[td_min_bin:,:fmax_bin], 1) # .3 MHz
-    #     # scaled = np.sum(self.data[td_min_bin:,:fmax_bin], 1) # .3 MHz
-    #
-    #     # d = self._ion_data * self.data # 2012-03-08
-    #     # d = self._cyc_data * self.data
-    #     d = self._ion_data
-    #     scaled = np.sum(d[td_min_bin:,:fmax_bin], 1) # .3 MHz
-    #
-    #     scaled = proc_peaks(scaled)
-    #
-    #     max_scaled, = np.where(scaled > (0.1 * np.amax(scaled)))
-    #     if max_scaled.shape[0] < 1:
-    #         msg = "Auto-cyclotron: Failed (first line not detected)"
-    #         return msg
-    #
-    #     max_scaled = max_scaled[0]
-    #     if scaled[max_scaled] < threshold:
-    #         msg = "Auto-cyclotron: Failed (first line intensity %e below threshold %e)" % (scaled[max_scaled], threshold)
-    #         return msg
-    #
-    #     max_scaled_delay = self.delays[max_scaled + td_min_bin]
-    #
-    #     ds = np.arange(82) * 91.4 # covers the whole delay range including zero.
-    #     scaled = np.interp(ds, self.delays[td_min_bin:], scaled, left=0., right=0.)
-    #
-    #     vals = np.zeros(40)
-    #     for i in range(2,40):
-    #         vals[i] = np.sum(scaled[i::i]) * i / 82.0 / fmax_bin
-    #
-    #     # imax = arg_peak(vals, width=1)
-    #     # imax = np.argmax(vals)
-    #     vals_inx = np.arange(vals.shape[0])
-    #     imax = int(round(np.interp(max_scaled_delay, vals_inx*91.4, vals_inx)))
-    #
-    #     dtx = imax * 91.4 * 1.0E-6
-    #     max_vals = np.amax(vals)
-    #
-    #     if True:
-    #         fw = fwhm(np.arange(vals.shape[0]) * 91.4 * 1.0E-6, vals, peak_inx=imax)
-    #         if ((dtx < ais_td_cyclotron_sensible[0]) |
-    #                                 (dtx > ais_td_cyclotron_sensible[1])):
-    #             msg = "Auto-cyclotron: Failed (result not sensible %f)" % dtx
-    #         # elif (0.5 * fw) > ais_auto_cyclotron_max_err:
-    #         #     msg = "Auto-cyclotron: Failed (error too large %f)" % (fw * 0.5)
-    #         else:
-    #             d = td_to_modb(dtx, 0.5 * fw)
-    #             d = (d[0] * 1.0E9, d[1] * 1.0E9)
-    #             msg = "Auto-cylotron: Found lines at %.1f +/- %.1f nT" % d
-    #             self.digitization.set_cyclotron( dtx, 0.5 * fw ,
-    #                                     method='AUTO - V' + __auto_version__)
-    #             self.digitization.quality_factor = self.quality_factor
-    #     else:
-    #         msg = "Auto-cyclotron: Failed (Threshold %e, val %e)" % (threshold,
-    #                                                                         vals[imax])
-    #
-    #     if figure_number:
-    #         plt.subplot(211)
-    #         plt.plot(ds * 1.0E-3, scaled,'k-')
-    #         # if imax.shape[0] > 0:
-    #         # plt.vlines(ds[imax] * 1.0E-3, *plt.ylim())
-    #         plt.vlines(dtx*1.E3, *plt.ylim(), colors='blue')
-    #
-    #         plt.vlines(max_scaled_delay*1.E-3, *plt.ylim(), colors='green')
-    #         if not (vals[imax] < max_vals):
-    #             plt.vlines(np.arange(0., plt.xlim()[1], dtx * 1.0E3) , *plt.ylim(),
-    #                 colors='red')
-    #         plt.subplot(212)
-    #         plt.plot(np.arange(vals.shape[0]) * 91.4 * 1.0E-3, vals, 'k-')
-    #         plt.vlines(ds[imax] * 1.0E-3, *plt.ylim(), colors='k')
-    #
-    #     if ax:
-    #         plt.plot(ds * 1.0E-3, scaled,'r-')
-    #         plt.plot(np.arange(vals.shape[0]) * 91.4 * 1.0E-3, vals, 'k-')
-    #         plt.vlines(ds[imax] * 1.0E-3, *plt.ylim(), colors='k')
-    #
-    #     return msg
-
-    # def calculate_reflection(self):
-    #     if not hasattr(self, '_ion_data'):
-    #         self.generate_binary_arrays()
-    #      self._ion_data
-    #          s = skimage.measure.label(img.astype(int))
-    # s_set = np.unique(s * mask)
-    # if s_set.sum() > 0:
-    #     for v in s_set:
-    #         q = (s == v)
-    #         if np.all(img[q]):
-    #             out[s == v] = 1
-    #             tmp = np.zeros_like(img)
-    #             tmp[s==v] = 1
-    #             fp_list.append((np.mean(tmp.nonzero()[1]), np.mean(tmp.nonzero()[0])))
 
 
     # Old version (as of 2012-07-18 - new above)
@@ -1912,6 +1805,8 @@ class IonogramDigitization:
         self.delete_td_cyclotron()
         self.delete_ground()
 
+        self.delete_fp_local_manual()
+
     def set_timestamp(self):
         self.timestamp = celsius.now()
 
@@ -1920,14 +1815,22 @@ class IonogramDigitization:
         d['time'] = self.time
         d['timestamp'] = self.timestamp
 
+        if not np.isfinite(self.time): raise ValueError("Time not set")
+
         d['fp_local'] = self.fp_local
         d['fp_local_error'] = self.fp_local_error
+
+        d['fp_local_manual_lines'] = self.fp_local_manual_lines.tolist()
+        d['fp_local_manual'] = self.fp_local_manual
 
         d['td_cyclotron'] = self.td_cyclotron
         d['td_cyclotron_error'] = self.td_cyclotron_error
 
         d['traced_delay'] = self.traced_delay.tolist()
         d['traced_frequency'] = self.traced_frequency.tolist()
+
+        if hasattr(self, 'td_cyclotron_selected_t'):
+            d['td_cyclotron_selected_t'] = self.td_cyclotron_selected_t.tolist()
 
         return d
 
@@ -1943,6 +1846,16 @@ class IonogramDigitization:
 
         self.traced_delay = np.array(d['traced_delay'])
         self.traced_frequency = np.array(d['traced_frequency'])
+
+        if hasattr(d, 'fp_local_manual_lines'):
+            self.fp_local_manual_lines = np.array(d['fp_local_manual_lines'],
+                ndmin=1)
+            self.fp_local_manual = d['fp_local_manual']
+
+        if hasattr(d, 'td_cyclotron_selected_t'):
+            self.td_cyclotron_selected_t = np.array(
+                d['td_cyclotron_selected_t'], ndmin=1)
+
 
     def delete_trace(self):
         self.traced_delay       = np.empty(0)
@@ -1968,10 +1881,14 @@ class IonogramDigitization:
     def delete_td_cyclotron(self):
         self.td_cyclotron       = np.nan
         self.td_cyclotron_error = np.nan
+        self.td_cyclotron_selected_t = np.empty(0)
+
+    def delete_fp_local_manual(self):
+        self.fp_local_manual   = np.nan
+        self.fp_local_manual_lines = np.empty(0)
 
     def delete_ground(self):
         self.ground = np.nan
-
 
     # Threshold = 150.cm -3 in Hz
     def _compute_fp_local(self, threshold=109982.):
@@ -1986,6 +1903,17 @@ class IonogramDigitization:
             if self.integrated_fp_local > threshold:
                 self.fp_local = self.morphology_fp_local
                 self.fp_local_error = self.morphology_fp_local_error
+
+        if self.fp_local_manual_lines is not None:
+            if self.fp_local_manual_lines.size > 1:
+                self.fp_local = np.mean(np.diff(self.fp_local_manual_lines))
+                self.fp_local_error = np.mean(
+                    np.abs(self.fp_local_manual_lines -
+                np.arange(1, self.fp_local_manual_lines.size+1) * self.fp_local)
+                )
+            if self.fp_local_manual_lines.size == 1:
+                self.fp_local = self.fp_local_manual_lines[0]
+                self.fp_local_error = np.inf
 
         # print '--', self.integrated_fp_local, self.integrated_fp_local > threshold, self.morphology_fp_local, self.fp_local
         # self.set_timestamp()
@@ -2012,13 +1940,19 @@ class IonogramDigitization:
         self.integrated_fp_local_error = integrated_fp_local_error
         self._compute_fp_local()
 
+    def set_fp_local_manual(self, fp_local_manual_lines):
+        self.fp_local_manual_lines = np.array(fp_local_manual_lines, ndmin=1)
+        if self.fp_local_manual_lines.size > 1:
+             self.fp_local_manual_lines.sort()
+        self._compute_fp_local()
+
     def set_cyclotron(self, td_cyclotron, td_cyclotron_error, method,
                             selected_t=None):
         self.td_cyclotron = td_cyclotron
         self.td_cyclotron_error = td_cyclotron_error
         self.td_cyclotron_method = str(method)
         if selected_t is not None:
-            self.td_cyclotron_selected_t = selected_t
+            self.td_cyclotron_selected_t = np.array(selected_t, ndmin=1)
 
     def set_trace(self, traced_delay, traced_frequency, method,
                             traced_intensity=None):
@@ -2154,8 +2088,10 @@ class DigitizationDB():
 
         mex.check_create_file(filename)
 
-        with open(filename, 'wb') as f:
+        with open(filename + '.tmp', 'wb') as f:
             pickle.dump( [dg.to_dict() for dg in self._digitization_list], f)
+
+        os.rename(filename + '.tmp', filename)
 
         return self
 
@@ -2524,7 +2460,8 @@ def get_ais_index(fname=None):
         _generate_ais_index(fname)
 
 def _generate_ais_index(outfile=None, update=True, start_orbit=None,
-                recompute=False):
+                finish_orbit=None, recompute=False):
+
     import mars
 
     # g = get_ais_coverage()
@@ -2548,7 +2485,10 @@ def _generate_ais_index(outfile=None, update=True, start_orbit=None,
         if start_orbit is None:
             start_orbit = 2366
 
-    for o in range(start_orbit, mex.orbits[celsius.now()].number - 10):
+    if finish_orbit is None:
+        finish_orbit = mex.orbits[celsius.now()].number - 50
+
+    for o in range(start_orbit, finish_orbit):
         if start_orbit is not None:
             if o < start_orbit: continue
 
