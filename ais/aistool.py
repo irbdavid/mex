@@ -32,7 +32,7 @@ __status__ = "Development"
 
 ais_tool_instance = None
 
-debug = True
+debug = False
 
 class AISTool(object):
     """docstring for AISTool"""
@@ -178,7 +178,8 @@ class AISTool(object):
         # If the user specified one, load it, else get the default for the orbit
         if self.load:
             if self._initial_digitization_db:
-                self.digitization_db = DigitizationDB(filename=self._initial_digitization_db)
+                self.digitization_db = DigitizationDB(
+                            filename=self._initial_digitization_db, verbose=True)
             else:
                 self.digitization_db = DigitizationDB(orbit=self.orbit)
             self._digitization_saved = True
@@ -296,7 +297,16 @@ class AISTool(object):
             plt.sca(self.ne_ax)
             plt.cla()
 
-            self.message("Set ionogram to %s" % celsius.utcstr(1. * self.current_ionogram.time, format='C'))
+            ig_index = 0
+            test_ig = self.ionogram_list[0]
+            while test_ig != self.current_ionogram:
+                ig_index += 1
+                test_ig = self.ionogram_list[ig_index]
+
+            self.message("Set ionogram to %s [%d/%d]" % (
+                celsius.utcstr(1. * self.current_ionogram.time, format='C'),
+                ig_index,
+                len(self.ionogram_list)))
 
             if update:
                 self.set_status(None)
@@ -319,15 +329,14 @@ class AISTool(object):
 
             elif self.status == 'plasma_lines':
                 self.selected_plasma_lines.append(event.xdata)
-                if len(self.selected_plasma_lines) > 1:
-                    arr = np.array(self.selected_plasma_lines)
-                    arr = np.diff(np.sort(arr))
-                    self.current_ionogram.digitization.set_morphology_fp_local(
-                        np.mean(arr) * 1.0E6, np.std(arr) * 1.0E6, method='MANUAL',
-                        selected_f=np.array(self.selected_plasma_lines) * 1E6)
+                if len(self.selected_plasma_lines) >= 1:
+                    arr = np.array(self.selected_plasma_lines, ndmin=1)
+                    # arr = np.sort(arr)
+                    self.current_ionogram.digitization.set_fp_local_manual(
+                        arr * 1.0E6)
                     self._digitization_saved = False
                     self.current_ionogram.digitization.set_timestamp()
-                    self.message('Selected Plas. Line. @ %f MHz, Morph Fp_local = %f MHz' % (event.xdata, self.current_ionogram.digitization.morphology_fp_local/1E6))
+                    self.message('Selected Plas. Line. @ %f MHz, Morph Fp_local = %f MHz' % (event.xdata, self.current_ionogram.digitization.fp_local/1E6))
                     self.update()
 
             elif self.status == 'cyclotron_lines':
@@ -451,6 +460,7 @@ class AISTool(object):
                 pass # fix selected point to position
 
     def on_scroll(self, event):
+        return
         print("SCROLL INNIT")
         if self.status == 'plasma_lines':
             fp = self.current_ionogram.digitization.fp_local
@@ -482,19 +492,12 @@ class AISTool(object):
         i.threshold_data()
         i.generate_binary_arrays()
         self.message( i.calculate_ground_trace() )
-        self.message( i.calculate_fp_local(figure_number=self.fp_local_figure_number) )
+        self.message( i.calculate_fp_local(
+                figure_number=self.fp_local_figure_number) )
         self.message(
-            i.calculate_td_cyclotron(figure_number=self.td_cyclotron_figure_number) )
-        # self.message( i.calculate_ionosphere_reflection(db=self.digitization_db) )
+            i.calculate_td_cyclotron(
+                figure_number=self.td_cyclotron_figure_number) )
         self.message( i.calculate_reflection() )
-
-        # i.data = np.logical_or( i._fp_data, i._cyc_data)
-        # i.data = 10.** (i._cyc_data * (-13+16) + -16)
-        # # i.data = i._fp_data
-        # i.data = i._ion_data
-        # tmp = np.zeros_like(i.data, dtype=np.float32) + 10.**self.vmin
-        # tmp[i.data] = 10.**self.vmax
-        # i.data = tmp
 
         i.delete_binary_arrays()
         print("Quality factor = ", i.quality_factor)
@@ -870,10 +873,13 @@ class AISTool(object):
         self.current_ionogram.data = self.current_ionogram.thresholded_data
 
     def key_q(self):
-        self.message('Q disabled!!')
-        return
+        # self.message('Q disabled!!')
+        # return
+        filename = self.digitization_db.filename
+
         del self.digitization_db
-        self.digitization_db = DigitizationDB(orbit=self.orbit, load=False, verbose=True)
+        self.digitization_db = DigitizationDB(orbit=self.orbit,
+            filename=filename, load=False, verbose=True)
 
         def p(s):
             print(s)
@@ -883,13 +889,39 @@ class AISTool(object):
 
         fp, td, ground, reflection = 0, 0, 0, 0
 
+
+        #     self.message('Added new digitization')
+        #
+        # i = self.current_ionogram
+        # i.threshold_data()
+        # i.generate_binary_arrays()
+        # self.message( i.calculate_ground_trace() )
+        # self.message( i.calculate_fp_local(
+        #         figure_number=self.fp_local_figure_number) )
+        # self.message(
+        #     i.calculate_td_cyclotron(
+        #         figure_number=self.td_cyclotron_figure_number) )
+        # self.message( i.calculate_reflection() )
+        #
+        # i.delete_binary_arrays()
+        # print("Quality factor = ", i.quality_factor)
+        #
+        # if not self.current_ionogram.digitization:
+        #     self._digitization_saved = False
+        #     self.current_ionogram.digitization.set_timestamp()
+
         for d in self.ionogram_list:
             print('-----')
+            d.threshold_data()
+            d.generate_binary_arrays()
             d.digitization = IonogramDigitization()
+            d.digitization.time = d.time
             fp += p(d.calculate_fp_local())
             td += p(d.calculate_td_cyclotron())
             ground += p(d.calculate_ground_trace())
             reflection += p(d.calculate_reflection())
+            d.delete_binary_arrays()
+            d.digitization.set_timestamp()
             self.digitization_db.add(d.digitization)
             # print self.current_ionogram.time
         print('-----')
@@ -1033,5 +1065,5 @@ if __name__ == '__main__':
 
     # global ais_tool_instance
 
-    ais_tool_instance = AISTool(debug=False, mobile=False,
+    ais_tool_instance = AISTool(debug=False, mobile=True,
         orbit=orbit, digitization_db=db)
