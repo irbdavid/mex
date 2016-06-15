@@ -12,8 +12,9 @@ import sys
 
 import mex
 import mex.ais
-import spiceypy
-from . import ais_code
+# import spiceypy
+# from . import ais_code
+import mex.ais.ais_code as ais_code
 import celsius
 import mex.sub_surface
 
@@ -24,7 +25,7 @@ import os
 
 import markus
 import mex.aspera
-from . import morgan
+from mex.ais import morgan
 
 import scipy.ndimage.morphology as morphology
 
@@ -195,7 +196,9 @@ class AISReview(object):
 
         if colorbar:
             old_ax = plt.gca()
-            plt.colorbar(cax = celsius.make_colorbar_cax(), ticks=self.cbar_ticks).set_label(r"$Log_{10} V^2 m^{-2} Hz^{-1}$")
+            plt.colorbar(
+                    cax = celsius.make_colorbar_cax(), ticks=self.cbar_ticks
+                ).set_label(r"$Log_{10} V^2 m^{-2} Hz^{-1}$")
             plt.sca(old_ax)
 
     def plot_frequency(self, f=2.0, ax=None, median_filter=False,
@@ -237,7 +240,7 @@ class AISReview(object):
             plt.sca(old_ax)
 
     def plot_frequency_range(self, f_min=0., f_max=0.2, ax=None, median=False,
-        vmin=None, vmax=None, colorbar=False):
+        vmin=None, vmax=None, colorbar=False, max_value=False):
 
         if vmin is None:
             vmin = self.vmin
@@ -247,6 +250,7 @@ class AISReview(object):
 
         if ax is None:
             ax = plt.gca()
+
         plt.sca(ax)
         plt.cla()
         freq_extent = (self.extent[0], self.extent[1],
@@ -263,6 +267,8 @@ class AISReview(object):
             if inx.shape[0] < 3:
                 raise ValueError("Median here only really makes sense for 3 or more bins")
             img = np.median(self.tser_arr_all[:,inx,:],1)
+        elif max_value:
+            img = np.max(self.tser_arr_all[:,inx,:],1)
         else:
             img = np.mean(self.tser_arr_all[:,inx,:],1)
         plt.imshow(img, vmin=vmin, vmax=vmax,
@@ -368,12 +374,15 @@ class AISReview(object):
 
             if field_color is None: field_color = fmt[0]
             # b = self.quick_field_model(self.t)
-            b = self.field_model(self.iau_pos)
-            plt.plot(self.t - t_offset, np.sqrt(np.sum(b**2., 0)),
+            self._computed_field_model = self.field_model(self.iau_pos)
+            plt.plot(self.t - t_offset,
+                        np.sqrt(np.sum(self._computed_field_model**2., 0)),
                         color=field_color, ls='-')
             if br:
-                plt.plot(self.t - t_offset, b[0], 'r-')
-                plt.plot(self.t - t_offset, -1. * b[0], 'r', ls='dashed')
+                plt.plot(self.t - t_offset,
+                    self._computed_field_model[0], 'r-')
+                plt.plot(self.t - t_offset,
+                    -1. * self._computed_field_model[0], 'r', ls='dashed')
 
         if label:
             celsius.ylabel(r'$\mathrm{|B|/nT}$')
@@ -439,7 +448,8 @@ class AISReview(object):
             #     i.threshold_data()
             #     plt.plot(float(i.time), np.sum(morphology.binary_hit_or_miss(i.thresholded_data, s)), 'go',ms=1.3)
 
-    def plot_peak_altitude(self, ax=None):
+    def plot_peak_altitude(self, ax=None, true_color='k',
+        apparent_color='grey'):
         if ax is None:
             ax = plt.gca()
         plt.sca(ax)
@@ -452,9 +462,15 @@ class AISReview(object):
                     except BaseException as e:
                         print(e)
                         continue
-                plt.plot(d.time, d.altitude[-1], 'k.', ms=self.marker_size)
+
+                if apparent_color:
+                    plt.plot(d.time, d.altitude[-1], marker='.',
+                        ms=self.marker_size, color=apparent_color)
                 alt = mex.iau_pgr_alt_lat_lon_position(float(d.time))[0]
-                plt.plot(d.time, alt - d.traced_delay[-1] * ais_code.speed_of_light_kms / 2., 'rx', ms=self.marker_size)
+                plt.plot(d.time,
+                alt - d.traced_delay[-1] * ais_code.speed_of_light_kms / 2.,
+                        marker='.', color=true_color,
+                        ms=self.marker_size)
         celsius.ylabel(r'$h_{max} / km$')
         plt.ylim(0o1, 249)
 
@@ -1170,14 +1186,12 @@ if __name__ == '__main__':
     else:
         orbit = 8021
     if len(sys.argv) > 2:
-        fname = str(sys.argv[2])
-        save = True
+        db_filename = str(sys.argv[2])
     else:
-        fname = None
-        save = False
+        db_filename = None
 
-    main(orbit, figurename=fname, save=save, show=True,
-        along_orbit=False, verbose=True, debug=True)
+    main(orbit, show=True,
+        along_orbit=False, verbose=True, debug=True, fname=db_filename)
     # ao_plot(orbit)
     plt.show()
     # plt.savefig("/Users/dave/Desktop/9747.pdf", dpi=20)
