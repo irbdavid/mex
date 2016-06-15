@@ -6,6 +6,9 @@ import mex
 import celsius
 import glob
 
+from os import getenv
+from os.path import expanduser
+
 import time as py_time
 import pickle
 
@@ -67,6 +70,7 @@ mars_rotation_period_days = 1.025957
 mars_mass_kg = 6.4185e23
 
 spice_furnsh_done = False
+last_spice_time_window = 'NONE_INITIALIZED'
 
 REQUIRED_KERNELS = ['/lsk/NAIF*.TLS',
                     '/pck/DE*-MASSES.TPC',
@@ -83,79 +87,145 @@ REQUIRED_KERNELS = ['/lsk/NAIF*.TLS',
                     '/spk/DE*.BSP',
                     '/spk/ORMF_*.BSP']
 
-def check_spice_furnsh():
-    load_kernels(force=False, clear=False)
+def check_spice_furnsh(*args, **kwargs):
+    load_kernels(*args, **kwargs)
 
-def load_kernels(force=False, clear=False, verbose=False):
+def load_kernels(time=None, force=False, verbose=False,
+                load_all=False, keep_previous=False):
     """Load spice kernels, with a stateful thing to prevent multiple calls"""
-    global spice_furnsh_done
+    global last_spice_time_window
 
-    if clear:
-        spiceypy.kclear()
-        spice_furnsh_done = False
+    if load_all:
+        # Launch to now + 10 yrs
+        start = celsius.spiceet("2003-06-01T00:00")
+        finish = celsius.spiceet(mex.now() + 10.*86400.*365.)
 
-    if not spice_furnsh_done:
-        spice_furnsh_done = False
-        try:
-            kernel_directory = mex.data_directory + 'spice'
+    if time is None:
+        start = None
+        finish = None
+        start_str = 'NO_TIME_SET'
+        finish_str = ''
+        start_int=-999999
+        finish_int=-999999
+    else:
+        if hasattr(time, '__len__'):
+            start = time[0]
+            finish = time[-1]
+
+        else:
+            start = time
+            finish = time
+        start_str = celsius.utcstr(start, 'ISOC')
+        finish_str = celsius.utcstr(finish, 'ISOC')
+        start_int = int(start_str[2:4] + start_str[5:7] + '01')
+        finish_int = int(finish_str[2:4] + finish_str[5:7] + '01')
+        start_str = '%06d' % start_int
+        finish_str = '%06d' % finish_int
+
+    this_spice_time_window = start_str + finish_str
+
+    if not 'NONE' in last_spice_time_window:
+        if last_spice_time_window == this_spice_time_window:
             if verbose:
-                print('Registering kernels:')
+                print('LOAD_KERNELS: Interval unchanged')
+            return
 
-            for k in REQUIRED_KERNELS:
+        if keep_previous:
+            if verbose:
+                print('LOAD_KERNELS: Keeping loaded kernels')
+            return
 
-                if '*' in k:
-                    files = glob.glob(kernel_directory + k)
-                    m = -1
-                    file_to_load = ''
-                    for f in files:
-                        t = os.path.getmtime(f)
-                        if t > m:
-                            m = t
-                            file_to_load = f
-                    if verbose:
-                        print(file_to_load)
-                    spiceypy.furnsh(file_to_load)
+    last_spice_time_window = this_spice_time_window
 
-                else:
-                    spiceypy.furnsh(kernel_directory + k)
-                    if verbose: print(kernel_directory + k)
+    spiceypy.kclear()
 
-            for f in glob.iglob(kernel_directory + '/spk/ORMM*.BSP'):
+    try:
+        kernel_directory = mex.data_directory + 'spice'
+        if verbose:
+            print('LOAD_KERNELS: Registering kernels:')
+
+        for k in REQUIRED_KERNELS:
+
+            if '*' in k:
+                files = glob.glob(kernel_directory + k)
+                m = -1
+                file_to_load = ''
+                for f in files:
+                    t = os.path.getmtime(f)
+                    if t > m:
+                        m = t
+                        file_to_load = f
+                if verbose:
+                    print(file_to_load)
+                spiceypy.furnsh(file_to_load)
+
+            else:
+                spiceypy.furnsh(kernel_directory + k)
+                if verbose: print(kernel_directory + k)
+
+        if start_int > -999999:
+            # Load time-sensitive kenrels
+            for f in glob.iglob(kernel_directory + '/spk/ORMM__*.BSP'):
+                this_int = int(f.split('__')[1][:6])
+                if this_int < start_int: continue
+                if this_int > finish_int: continue
                 spiceypy.furnsh(f)
                 if verbose: print(f)
-            spice_furnsh_done = True
 
-        except Exception as e:
-            # spiceypy.kclear()
-            spice_furnsh_done = False
-            raise
+    except Exception as e:
+        spiceypy.kclear()
+        last_spice_time_window = 'NONE_ERROR'
+        raise
+
+    print('LOAD_KERNELS: Loaded %s' % last_spice_time_window)
 
 def unload_kernels():
     """Unload kernels"""
-    global spice_furnsh_done
+
+    global last_spice_time_window
+
     try:
         spiceypy.kclear()
-        spice_furnsh_done = False
+
+        # But, we always want the LSK loaded.  This should be safe provided
+        # a) celsius was loaded first (safe assertion, this code won't work
+        # without it), meaning that the latest.tls was updated if needs be
+        # b) uptime for this instance is less than the lifetime of a tls kernel
+        # (years?)
+        spiceypy.furnsh(
+            getenv("SC_DATA_DIR", default=expanduser('~/data/')) + \
+            'latest.tls'
+        )
+
+        last_spice_time_window = 'NONE_UNLOADED'
     except RuntimeError as e:
-        spice_furnsh_done = False
+        last_spice_time_window = 'NONE_ERROR'
         raise e
 
 load_spice_kernels = load_kernels # Synonym, innit
 unload_spice_kernels     = unload_kernels
 
-def position(time, frame='IAU_MARS', target='MEX', observer='MARS', correction='NONE'):
+def position(time, frame='IAU_MARS', target='MEX', observer='MARS',
+            correction='NONE'):
     """Wrapper around spiceypy.spkpos that handles array inputs, and provides useful defaults"""
-    check_spice_furnsh()
+
+    check_spice_furnsh(time)
+
     def f(t):
         try:
             pos, lt = spiceypy.spkpos(target, t, frame, correction, observer)
         except spiceypy.support_types.SpiceyError:
             return np.empty(3) + np.nan
         return np.array(pos)
+
     if hasattr(time, '__iter__'):
-        return np.array([f(t) for t in time]).T
+        x = np.array([f(t) for t in time]).T
+
     else:
-        return f(time)
+        x = f(time)
+
+    # unload_kernels()
+    return x
 
 def iau_mars_position(time):
     """An alias: position(time, frame='IAU_MARS')"""
@@ -167,6 +237,9 @@ def mso_position(time):
 
 def reclat(pos):
     """spiceypy.reclat with a wrapper for ndarrays"""
+
+    check_spice_furnsh(keep_previous=True)
+
     if isinstance(pos, np.ndarray):
         if len(pos.shape) > 1:
             return np.array([spiceypy.reclat(p) for p in pos.T]).T
@@ -174,6 +247,8 @@ def reclat(pos):
 
 def recpgr(pos, body="MARS"):
     """spiceypy.recpgr for mars, with a wrapper for ndarrays"""
+
+    check_spice_furnsh(keep_previous=True)
 
     if body == "MARS":
        r, e = 3396.2, 0.005888934691714269
@@ -188,8 +263,8 @@ def recpgr(pos, body="MARS"):
     return f(pos)
 
 # Convert "WEST" longitudes to "EAST", which seems to be more commonly used.
-# This is the reason for the non-multiplication of the longitude here, and the -1 in the
-# corresponding iau_pgr_alt_lat_lon_position function
+# This is the reason for the non-multiplication of the longitude here,
+# and the -1 in the corresponding iau_pgr_alt_lat_lon_position function
 def iau_r_lat_lon_position(time, **kwargs):
     """" Return the position of MEX at `time`, in Radial Distance/Latitude/EAST Longitude.
     No accounting for the oblate spheroid is done, hence returning radial distance [km]"""
@@ -255,7 +330,9 @@ def mso_r_lat_lon_position(time, mso=False, sza=False, **kwargs):
 
 def solar_longitude(t, body="MARS", correction="NONE"):
     """Calculate solar longitude, default Mars. Nb. PlanetoCENTRIC coordinates, and this is NOT a synonym for sub-solar longitude (PlanetoGRAPHIC longitude).  Defined as Ls = solar_longitude = 0 deg at NH vernal equinox, 90 deg a NH summer solstice etc."""
-    mex.check_spice_furnsh()
+
+    check_spice_furnsh(t)
+
     def f(_t):
         return spiceypy.lspcn(body, _t, correction)
 
@@ -265,7 +342,9 @@ def solar_longitude(t, body="MARS", correction="NONE"):
         return f(t)
 
 def sub_solar_longitude(et):
-    check_spice_furnsh()
+
+    check_spice_furnsh(et)
+
     def f(t):
         pos, lt = spiceypy.spkpos("SUN", t, 'IAU_MARS', "NONE", "MARS")
         return np.array(pos)
@@ -280,7 +359,8 @@ def sub_solar_longitude(et):
     return np.rad2deg(tmp[0])
 
 def sub_solar_latitude(et, body='MARS'):
-    check_spice_furnsh()
+    check_spice_furnsh(et)
+
     def f(t):
         pos, lt = spiceypy.spkpos("SUN", t, 'IAU_' + body, "NONE", body)
         return np.array(pos)
