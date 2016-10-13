@@ -85,7 +85,7 @@ REQUIRED_KERNELS = ['/lsk/NAIF*.TLS',
                     '/fk/NEW_NORCIA_TOPO.TF',
                     '/fk/RSSD*.TF',
                     '/spk/DE*.BSP',
-                    '/spk/ORMF_*.BSP']
+                    '/spk/ORMF______*.BSP']
 
 def check_spice_furnsh(*args, **kwargs):
     load_kernels(*args, **kwargs)
@@ -93,7 +93,8 @@ def check_spice_furnsh(*args, **kwargs):
 def load_kernels(time=None, force=False, verbose=False,
                 load_all=False, keep_previous=False):
     """Load spice kernels, with a stateful thing to prevent multiple calls"""
-    global last_spice_time_window
+    # global last_spice_time_window
+    last_spice_time_window = getattr(spiceypy, 'last_spice_time_window', 'MEX:NONE')
 
     if load_all:
         # Launch to now + 10 yrs
@@ -135,7 +136,7 @@ def load_kernels(time=None, force=False, verbose=False,
                 print('LOAD_KERNELS: Keeping loaded kernels')
             return
 
-    last_spice_time_window = this_spice_time_window
+    spiceypy.last_spice_time_window = 'MEX:'+this_spice_time_window
 
     spiceypy.kclear()
 
@@ -165,8 +166,8 @@ def load_kernels(time=None, force=False, verbose=False,
 
         if start_int > -999999:
             # Load time-sensitive kenrels
-            for f in glob.iglob(kernel_directory + '/spk/ORMM__*.BSP'):
-                this_int = int(f.split('__')[1][:6])
+            for f in glob.iglob(kernel_directory + '/spk/ORMM_T19_*.BSP'):
+                this_int = int(f.split('_T19_')[1][:6])
                 if this_int < start_int: continue
                 if this_int > finish_int: continue
                 spiceypy.furnsh(f)
@@ -174,15 +175,15 @@ def load_kernels(time=None, force=False, verbose=False,
 
     except Exception as e:
         spiceypy.kclear()
-        last_spice_time_window = 'NONE_ERROR'
+        spiceypy.last_spice_time_window = 'MEX:NONE_ERROR'
         raise
-
-    print('LOAD_KERNELS: Loaded %s' % last_spice_time_window)
+    
+    # print('LOAD_KERNELS: Loaded %s' % last_spice_time_window)
 
 def unload_kernels():
     """Unload kernels"""
 
-    global last_spice_time_window
+    # last_spice_time_window
 
     try:
         spiceypy.kclear()
@@ -197,9 +198,9 @@ def unload_kernels():
             'latest.tls'
         )
 
-        last_spice_time_window = 'NONE_UNLOADED'
+        spiceypy.last_spice_time_window = 'MEX:NONE_UNLOADED'
     except RuntimeError as e:
-        last_spice_time_window = 'NONE_ERROR'
+        spiceypy.last_spice_time_window = 'MEX:NONE_ERROR'
         raise e
 
 load_spice_kernels = load_kernels # Synonym, innit
@@ -466,9 +467,9 @@ def read_mex_orbits(fname):
 def read_all_mex_orbits(recompute=False, allow_write=True, verbose=False):
 
     require_write = False
+    fname = mex.data_directory + 'orbits.pck'
 
     if not recompute:
-        fname = mex.data_directory + 'orbits.pck'
         try:
             age = (py_time.clock() - os.path.getctime(fname)) / 86400
             if age > 10:
@@ -490,6 +491,8 @@ def read_all_mex_orbits(recompute=False, allow_write=True, verbose=False):
                 print('Encountered error reading stored orbit file:')
                 print('\t', e)
                 require_write = True
+    else:
+        require_write = True
 
     processed = []
     for pattern in ['ORMF_*.ORB', 'ORMM_MERGED_*.ORB']:
