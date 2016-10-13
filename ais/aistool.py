@@ -84,7 +84,7 @@ class AISTool(object):
         plt.close(figure_number)
         self.figure = plt.figure(figure_number, figsize=figsize, facecolor='0.6')
         g = mpl.gridspec.GridSpec(6, 2, width_ratios=[1,0.34],
-            height_ratios=[0.001, 0.001, 5,5,2,25], wspace=0.16, hspace=0.1,
+            height_ratios=[0.001, 0.001, 7,5,2,16], wspace=0.16, hspace=0.1,
             left=0.05, right=0.95, bottom=0.08, top=0.95)
 
         # self.stat_ax = plt.subplot(g[0,:])
