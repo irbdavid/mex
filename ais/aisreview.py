@@ -287,7 +287,7 @@ class AISReview(object):
             plt.sca(old_ax)
 
     def plot_frequency_altitude(self, f=2.0, ax=None, median_filter=False,
-        vmin=None, vmax=None, altitude_range=(-99.9, 399.9), colorbar=False, return_image=False):
+        vmin=None, vmax=None, altitude_range=(-99.9, 399.9), colorbar=False, return_image=False, annotate=True):
 
         if vmin is None:
             vmin = self.vmin
@@ -328,8 +328,10 @@ class AISReview(object):
         ax.xaxis.set_major_locator(celsius.SpiceetLocator())
 
         celsius.ylabel(r'Alt./km')
-        plt.annotate('f = %.1f MHz' % f, (0.02, 0.9), xycoords='axes fraction',
-            color='cyan', verticalalignment='top', fontsize='small')
+        if annotate:
+            plt.annotate('f = %.1f MHz' % f, (0.02, 0.9),
+                    xycoords='axes fraction', color='cyan', verticalalignment='top', fontsize='small')
+
         if colorbar:
             old_ax = plt.gca()
             plt.colorbar(cax = celsius.make_colorbar_cax(), ticks=self.cbar_ticks).set_label(r"$Log_{10} V^2 m^{-2} Hz^{-1}$")
@@ -375,14 +377,20 @@ class AISReview(object):
             if field_color is None: field_color = fmt[0]
             # b = self.quick_field_model(self.t)
             self._computed_field_model = self.field_model(self.iau_pos)
+            bmag = np.sqrt(np.sum(self._computed_field_model**2., 0))
             plt.plot(self.t - t_offset,
-                        np.sqrt(np.sum(self._computed_field_model**2., 0)),
+                        bmag,
                         color=field_color, ls='-')
             if br:
                 plt.plot(self.t - t_offset,
                     self._computed_field_model[0], 'r-')
                 plt.plot(self.t - t_offset,
                     -1. * self._computed_field_model[0], 'r', ls='dashed')
+
+            model_at_value = np.interp(t, self.t, bmag)
+            inx = (model_at_value > 100.) & ((b / model_at_value) < 0.75)
+            plt.plot(t[inx], b[inx], 'ro', mec='r', mfc='none', ms=5., mew=1.2)
+
 
         if label:
             celsius.ylabel(r'$\mathrm{|B|/nT}$')
@@ -404,7 +412,7 @@ class AISReview(object):
                 plt.plot((d.time, d.time),(f0,f1),
                     color='lightgrey', linestyle='solid',
                     marker='None', zorder=-1000,**kwargs)
-            plt.plot(d.time, f, fmt, ms=self.marker_size, zorder=1000,**kwargs)
+            plt.plot(d.time, f, fmt, ms=self.marker_size, zorder=1000, **kwargs)
 
             if full_marsis and hasattr(d, 'maximum_fp_local'):
                 plt.plot(d.time, ais_code.fp_to_ne(d.maximum_fp_local),
@@ -449,7 +457,7 @@ class AISReview(object):
             #     plt.plot(float(i.time), np.sum(morphology.binary_hit_or_miss(i.thresholded_data, s)), 'go',ms=1.3)
 
     def plot_peak_altitude(self, ax=None, true_color='k',
-        apparent_color='grey'):
+            apparent_color='grey'):
         if ax is None:
             ax = plt.gca()
         plt.sca(ax)
@@ -474,7 +482,7 @@ class AISReview(object):
         celsius.ylabel(r'$h_{max} / km$')
         plt.ylim(0o1, 249)
 
-    def plot_peak_density(self, ax=None):
+    def plot_peak_density(self, fmt='k.', labels=True, ax=None, **kwargs):
         if ax is None:
             ax = plt.gca()
         plt.sca(ax)
@@ -487,9 +495,10 @@ class AISReview(object):
                     except BaseException as e:
                         print(e)
                         continue
-                plt.plot(d.time, d.density[-1], 'k.', ms=self.marker_size)
+                plt.plot(d.time, d.density[-1], fmt, **kwargs)
 
-        celsius.ylabel(r'$n_{e,max} / cm^{-3}$')
+        if labels:
+            celsius.ylabel(r'$n_{e,max} / cm^{-3}$')
         ax.set_yscale('log')
         plt.ylim(1E4, 5E5)
 
@@ -729,7 +738,7 @@ class AISReview(object):
         self.generate_position()
         plt.plot(self.t, self.iau_pos[0] - mex.mars_mean_radius_km, fmt, **kwargs)
         if label:
-            celsius.ylabel('alt. / km')
+            celsius.ylabel('h / km')
 
     def plot_lat(self, ax=None, label=True, fmt='k-', **kwargs):
         if ax is None:
@@ -763,7 +772,7 @@ class AISReview(object):
         self.generate_position()
         plt.plot(self.t, self.sza, fmt, **kwargs)
         if label:
-            celsius.ylabel(r'$\theta_{SZ}$')
+            celsius.ylabel(r'$SZA / deg$')
         plt.ylim(0., 180.)
 
     def make_axis_circular(self, ax):
@@ -912,7 +921,12 @@ class AISReview(object):
             ax = plt.gca()
         else:
             plt.sca(ax)
-        mex.aspera.plot_ima_spectra(self.extent[0], self.extent[1], ax=ax, verbose=self.verbose, **kwargs)
+        try:
+            mex.aspera.plot_ima_spectra(self.extent[0], self.extent[1],
+                ax=ax, verbose=self.verbose, **kwargs)
+        except Exception as e:
+            print(e)
+
 
     def plot_aspera_els(self, ax=None, **kwargs):
         if self.verbose: print('PLOT_ASPERA_ELS:')
@@ -920,7 +934,12 @@ class AISReview(object):
             ax = plt.gca()
         else:
             plt.sca(ax)
-        mex.aspera.plot_els_spectra(self.extent[0], self.extent[1], ax=ax, verbose=self.verbose, **kwargs)
+        try:
+            mex.aspera.plot_els_spectra(self.extent[0], self.extent[1],
+                ax=ax, verbose=self.verbose, **kwargs)
+        except Exception as e:
+            print(e)
+                    
 
     def main(self, fname=None, show=False,
                 figurename=None, save=False, along_orbit=False, set_cmap=True):
