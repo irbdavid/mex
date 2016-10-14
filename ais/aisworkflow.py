@@ -84,7 +84,7 @@ def queue_writer():
     fh = open(os.getenv('SC_DATA_DIR') + 'mex/ais_workflow_output.txt','w')
     while True:
         g = queue.get()
-        fh.write(str(celsius.utcstr(celsius.now()) + ': '+ str(g)+'\n')
+        fh.write(str(celsius.utcstr(celsius.now())) + ': '+ str(g)+'\n')
         fh.flush()
         queue.task_done()
     fh.close()
