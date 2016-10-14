@@ -2204,6 +2204,8 @@ class DigitizationDB():
 def compute_all_digitizations(orbit, filename=None, verbose=False):
     db = DigitizationDB(orbit=orbit, filename=filename, load=False)
     ionogram_list = read_ais(orbit)
+    if not ionogram_list:
+        return
 
     fp_local_counter = 0
     td_cyclotron_counter = 0

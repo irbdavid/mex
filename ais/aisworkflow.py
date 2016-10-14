@@ -84,7 +84,7 @@ def queue_writer():
     fh = open(os.getenv('SC_DATA_DIR') + 'mex/ais_workflow_output.txt','w')
     while True:
         g = queue.get()
-        fh.write(str(g)+'\n')
+        fh.write(str(celsius.utcstr(celsius.now()) + ': '+ str(g)+'\n')
         fh.flush()
         queue.task_done()
     fh.close()
@@ -109,33 +109,26 @@ if __name__ == '__main__':
     exception_list = {}
     repeat = True
 
-    start = determine_last_processed_orbit() - 100
-    #start = 1840
-    start = 14935
-    finish = mex.orbits[celsius.now() - 86400. * 50.].number
+    # start = determine_last_processed_orbit() - 100
+    start = 1840
+    # start = 14935
+    finish = mex.orbits[celsius.now()].number - 10
 
     if len(sys.argv) > 1:
         start = int(sys.argv[1])
     if len(sys.argv) > 2:
         finish = int(sys.argv[2])
 
-    coverage = mex.ais.get_ais_coverage()
-
-    done_orbits = []
     orbits = list(range(start, finish))
 
     completed_orbits = []
     duration_list = []
 
-    orbits = [o for o in orbits if o not in done_orbits]
-
-    orbits = [o for o in orbits if coverage[o] > 0]
-
-    f = lambda o: os.path.exists(mex.data_directory + \
-                    'marsis/ais_digitizations/%05d/%05d.dig' % (o/1000 * 1000, o))
-
-    if not repeat:
-        orbits = [o for o in orbits if f(o)]
+    # f = lambda o: os.path.exists(mex.data_directory + \
+    #                 'marsis/ais_digitizations/%05d/%05d.dig' % (o/1000 * 1000, o))
+    #
+    # if not repeat:
+    #     orbits = [o for o in orbits if f(o)]
 
     def cb(s):
         print(s)
@@ -150,8 +143,8 @@ if __name__ == '__main__':
     writer = mp.Process(target=queue_writer)
     writer.start()
 
-    runner = async_worker_review
-    # runner = async_worker_computer
+    # runner = async_worker_review
+    runner = async_worker_computer
 
     # print('--- test --- ')
     # print(runner(4264, debug=True, verbose=True))
