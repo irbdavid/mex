@@ -109,8 +109,8 @@ if __name__ == '__main__':
     exception_list = {}
     repeat = True
 
-    # start = determine_last_processed_orbit() - 100
-    start = 1840
+    start = determine_last_processed_orbit() - 50
+    # start = 1840
     # start = 14935
     finish = mex.orbits[celsius.now()].number - 10
 
