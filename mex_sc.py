@@ -158,6 +158,8 @@ def load_kernels(time=None, force=False, verbose=False,
                         file_to_load = f
                 if verbose:
                     print(file_to_load)
+                if not file_to_load:
+                    raise IOError("No matches found for %s" % k)
                 spiceypy.furnsh(file_to_load)
 
             else:
@@ -177,7 +179,7 @@ def load_kernels(time=None, force=False, verbose=False,
         spiceypy.kclear()
         spiceypy.last_spice_time_window = 'MEX:NONE_ERROR'
         raise
-    
+
     # print('LOAD_KERNELS: Loaded %s' % last_spice_time_window)
 
 def unload_kernels():
