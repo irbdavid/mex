@@ -46,9 +46,14 @@ debug = False
 
 ais_spacing_seconds = 7.543
 ais_number_of_delays = 80
-ais_delays = (np.arange(80) * 91.4 + 91.4 + 162.5) * 1E-6
-ais_max_delay = 7474.5 * 1.0E-6
-ais_min_delay = 253.9 * 1.0E-6
+# ais_delays = (np.arange(80) * 91.4 + 91.4 + 162.5) * 1E-6
+# ais_max_delay = 7474.5 * 1.0E-6
+# ais_min_delay = 253.9 * 1.0E-6
+
+# change on 1 Nov 2016 to reflect bug discovered by Iowa
+ais_delays = (np.arange(80) * 91.4 + 162.5) * 1E-6
+ais_max_delay = max(ais_delays)
+ais_min_delay = min(ais_delays)
 
 # Logarithms here
 ais_vmin = -16
@@ -676,7 +681,7 @@ class Ionogram(object):
                     color='blue', overplot_digitization=False, title=None,
                     errors=True, show_thresholded_data=False, no_title=False,
                     overplot_model=False, altitude_range=None, verbose=False,
-                    labels=True, overplot_expected_ne_max=False):
+                    labels=True, overplot_expected_ne_max=False,alpha=1.):
         """docstring for Ionogram plot"""
 
         if not self.linear_frequency:
@@ -772,7 +777,7 @@ class Ionogram(object):
                 if verbose: print('Ionogram.plot: Model 2')
                 plt.plot(self._model_frequencies / 1E6,
                         -1. * self._model_delays * 1E3,
-                        color='white', lw=2.)
+                        color='white', lw=2.,alpha=alpha)
 
         if overplot_expected_ne_max:
             if verbose: print('Ionogram.plot: Nemax')
@@ -794,7 +799,7 @@ class Ionogram(object):
             # Expected ground delay
             x0, x1 = plt.xlim()
             plt.hlines(2.0 * self.mex_altitude / speed_of_light_kms * 1.0E3,
-                3, x1, colors=color, linestyle='dotted', lw=2.)
+                3, x1, colors=color, linestyle='dotted', lw=2.,alpha=alpha)
 
             if np.isfinite(d.fp_local):
                 phase = 0.0
@@ -804,20 +809,20 @@ class Ionogram(object):
 
                 if errors:
                     plt.vlines(fs + d.fp_local_error/1.0E6, *(plt.ylim()),
-                                    color=color, linestyle='dotted', lw=2.)
+                                    color=color, linestyle='dotted', lw=2.,alpha=alpha)
                     plt.vlines(fs - d.fp_local_error/1.0E6, *(plt.ylim()),
-                                    color=color, linestyle='dotted', lw=2.)
+                                    color=color, linestyle='dotted', lw=2.,alpha=alpha)
                 tit += ', Ne0 = %.1f +/- %.1f / cc' % \
                                 fp_to_ne(d.fp_local,d.fp_local_error)
 
             if d.morphology_fp_local_selected_f.size > 0:
                 for fs in d.morphology_fp_local_selected_f:
                     plt.vlines(fs / 1.0E6, *plt.ylim(),
-                                        color=color, linestyle='solid', lw=2.)
+                                        color=color, linestyle='solid', lw=2.,alpha=alpha)
 
             if d.traced_delay.size > 0:
                 plt.plot(d.traced_frequency/1.0E6, d.traced_delay*1.0E3,
-                    color=color, marker='+')
+                    color=color, marker='+',alpha=alpha)
 
             if np.isfinite(d.td_cyclotron):
                 xmin, xmax = plt.xlim()
@@ -826,14 +831,14 @@ class Ionogram(object):
                 td = np.arange(1., 5.) * d.td_cyclotron * 1e3
                 if td.shape[0] > 1:
                     plt.hlines(td, xmin, xmax, color=color,
-                                    linestyle='dashed', lw=2.)
+                                    linestyle='dashed', lw=2.,alpha=alpha)
                     if errors:
                         plt.hlines(td + d.td_cyclotron_error * 1.0E3,
                                     xmin, xmax, color=color,
-                                    linestyle='dotted', lw=2.)
+                                    linestyle='dotted', lw=2.,alpha=alpha)
                         plt.hlines(td - d.td_cyclotron_error * 1.0E3,
                                     xmin, xmax, color=color,
-                                    linestyle='dotted', lw=2.)
+                                    linestyle='dotted', lw=2.,alpha=alpha)
 
                 td = td_to_modb(d.td_cyclotron)*1.0E9
                 tit += ', |B| = %.1f +/- %.1f nT' % (
@@ -843,7 +848,7 @@ class Ionogram(object):
             if np.isfinite(d.ground):
                 xmin, xmax = plt.xlim()
                 plt.hlines(d.ground*1.0E3, 3.0, xmax,
-                            color=color, linestyle='dashed', lw=2.)
+                            color=color, linestyle='dashed', lw=2.,alpha=alpha)
 
             # Note that these are stored in 'self', not in the digitization d
             if hasattr(self,'_morphology_fp_locations'):
@@ -852,7 +857,7 @@ class Ionogram(object):
                             np.arange(self.frequencies.shape[0]),
                             self.frequencies) / 1E6
                     plt.plot( (fs,fs), plt.ylim(),
-                                color='green', linestyle='solid', lw=2.)
+                                color='green', linestyle='solid', lw=2.,alpha=alpha)
 
             if hasattr(self, '_intermediate_trace'):
                 plt.gca().add_patch(plt.Rectangle(
@@ -862,7 +867,7 @@ class Ionogram(object):
                                     self._intermediate_trace[1][0]/1E6,
                     self._intermediate_trace[0][1]*1E3 -
                                     self._intermediate_trace[0][0]*1E3,
-                    color='white',alpha=0.3)
+                    color='white',alpha=alpha)
                     )
 
         if not no_title:
