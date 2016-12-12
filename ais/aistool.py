@@ -16,7 +16,7 @@ import mex.ais as ais
 # import mex.ais_code as ais_code
 import mex.ais.aisreview
 import celsius
-import mars.chapman
+import celsius.mars
 
 from mex.ais import IonogramDigitization, DigitizationDB
 import imp
@@ -56,7 +56,7 @@ class AISTool(object):
 
         self.auto = auto
 
-        self.ionospheric_model = mars.chapman.Morgan2008ChapmanLayer()
+        self.ionospheric_model = celsius.mars.Morgan2008ChapmanLayer()
 
         np.seterr(all='ignore')
 
@@ -518,11 +518,12 @@ class AISTool(object):
         if debug:
             print('DEBUG: Plotting ionogram...')
 
+        alpha = 0.5
         self.current_ionogram.interpolate_frequencies() # does nothing if not required
         self.current_ionogram.plot(ax=self.ig_ax, colorbar=False,
             vmin=self.vmin, vmax=self.vmax,
             color='white', verbose=debug,
-            overplot_digitization=True,
+            overplot_digitization=True,alpha=alpha,errors=False,
             overplot_model=False, overplot_expected_ne_max=True)
         if debug:
             print('DEBUG: ... done')
@@ -536,19 +537,19 @@ class AISTool(object):
         if len(self.selected_plasma_lines) > 0:
             extent = plt.ylim()
             for v in self.selected_plasma_lines:
-                plt.vlines(v, extent[0], extent[1], 'red')
+                plt.vlines(v, extent[0], extent[1], 'red',alpha=alpha)
 
         if len(self.selected_cyclotron_lines) > 0:
             extent = plt.xlim()
             for v in self.selected_cyclotron_lines:
-                plt.hlines(v, extent[0], extent[1], 'red')
+                plt.hlines(v, extent[0], extent[1], 'red',alpha=alpha)
 
         f = self.current_ionogram.digitization.morphology_fp_local
         if np.isfinite(f):
             plt.vlines(
                 np.arange(1., 5.) * f / 1E6, plt.ylim()[0],
                 plt.ylim()[1],
-                color='red', lw=1.)
+                color='red', lw=1.,alpha=alpha)
 
         # If current digitization is invertible, do it and plot it
         if self.current_ionogram.digitization:
@@ -1063,7 +1064,7 @@ if __name__ == '__main__':
     else:
         db = None
 
-    # global ais_tool_instance
+    global ais_tool_instance
 
     ais_tool_instance = AISTool(debug=False, mobile=True,
         orbit=orbit, digitization_db=db)
