@@ -12,7 +12,7 @@ from os.path import expanduser
 import time as py_time
 import pickle
 
-import pylab as plt
+import matplotlib.pylab as plt
 import matplotlib as mpl
 
 output_directories = [
