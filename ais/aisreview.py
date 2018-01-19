@@ -18,12 +18,9 @@ import mex.ais.ais_code as ais_code
 import celsius
 import mex.sub_surface
 
-import mars
-import mars.chapman
-# import mars.field_models as field_models
+import celsius.mars.chapman
 import os
 
-import markus
 import mex.aspera
 from mex.ais import morgan
 
@@ -168,10 +165,10 @@ class AISReview(object):
         # pos = mex.iau_mars_position(self.trajectory['t'])
         # self.trajectory['pos'] = pos / mex.mars_mean_radius_km
 
-        self.field_model = mars.CainMarsFieldModel(nmax=60)
+        self.field_model = celsius.mars.CainMarsFieldModel(nmax=60)
         # self.quick_field_model = mars.CainMarsFieldModelAtMEX()
         self.generate_position()
-        self.ionosphere_model = mars.Morgan2008ChapmanLayer()
+        self.ionosphere_model = celsius.mars.Morgan2008ChapmanLayer()
 
     def plot_timeseries(self, ax=None, vmin=None, vmax=None,
             colorbar=False, label=True):
@@ -599,7 +596,7 @@ class AISReview(object):
                     # This gives departures from the Morgan et al model
                     sza = np.interp(d.time, self.t, self.sza)
                     # if sza < 90.:
-                    # chap = mars.ChapmanLayer()
+                    # chap = celsius.mars.ChapmanLayer()
                     # # inx, = np.where(np.isfinite(img[ii,:]))
                     # # chap.fit(ranges[inx], 10**img[ii,inx[::-1]], sza)
                     # try:
@@ -657,7 +654,7 @@ class AISReview(object):
                 if d.altitude.size:
                     # This tries to give an estimate of sub-solar TEC
                     # try:
-                    #     c = mars.chapman.ChapmanLayer()
+                    #     c = celsius.mars.chapman.ChapmanLayer()
                     #     c.fit(d.altitude[::-1], d.density[::-1], np.interp(d.time, self.t, self.sza))
                     #     plt.plot(d.time, c.n0 * c.h* 1E3 * 1e6, 'b.', mew=0.)
                     # except ValueError, e:
@@ -939,7 +936,7 @@ class AISReview(object):
                 ax=ax, verbose=self.verbose, **kwargs)
         except Exception as e:
             print(e)
-                    
+
 
     def main(self, fname=None, show=False,
                 figurename=None, save=False, along_orbit=False, set_cmap=True):

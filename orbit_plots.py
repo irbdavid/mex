@@ -227,7 +227,7 @@ def setup_lat_lon_ax(ax=None, label=True, tickspacing=30.):
 
 def plot_surface_map(orbits, ax=None, param='time',
                 cmap=None, norm=None, **kwargs):
-    import mars.field_models
+    import celsius.mars.field_models
     import pickle
     from matplotlib.cm import summer
     if ax is None:
@@ -241,7 +241,7 @@ def plot_surface_map(orbits, ax=None, param='time',
     setup_lat_lon_ax(ax=ax)
 
     try:
-        mars.field_models.plot_lat_lon_field(value='|B|',
+        celsius.mars.field_models.plot_lat_lon_field(value='|B|',
                     cax=celsius.make_colorbar_cax(half=True, upper=True))
     except NotImplementedError as e:
         pass
