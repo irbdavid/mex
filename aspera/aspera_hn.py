@@ -3,7 +3,7 @@ Code for reading ASPERA data prepared in Kiruna by Hans Nilsson & Leif Kalla
 
 """
 
-import pylab as plt
+import matplotlib.pylab as plt
 import numpy as np
 import mex
 

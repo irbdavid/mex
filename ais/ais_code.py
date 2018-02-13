@@ -15,8 +15,6 @@ import struct
 import stat
 import copy as copy_module
 
-import mars
-
 import celsius
 # import scipy.ndimage.filters as filters
 from scipy.signal import detrend
@@ -766,7 +764,7 @@ class Ionogram(object):
                                             np.deg2rad(self.sza))
 
                     self._model_delays, self._model_frequencies = \
-                            mars.Morgan2008ChapmanLayer().ais_response(
+                            celsius.mars.Morgan2008ChapmanLayer().ais_response(
                                     sc_altitude=self.mex_altitude,
                                     sc_theta=np.deg2rad(self.sza)
                             )
@@ -2469,15 +2467,13 @@ def get_ais_index(fname=None):
 def _generate_ais_index(outfile=None, update=True, start_orbit=None,
                 finish_orbit=None, recompute=False):
 
-    import mars
-
     # g = get_ais_coverage()
     count = 0
 
     if outfile is None:
         outfile = data_directory + 'ais_index.pk'
 
-    field_model = mars.CainMarsFieldModel()
+    field_model = celsius.mars.CainMarsFieldModel()
     out = {}
     if update:
         start_orbit = None

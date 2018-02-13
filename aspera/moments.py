@@ -11,7 +11,7 @@ import mex
 import numpy as np
 import os
 
-import pylab as plt
+import matplotlib.pylab as plt
 import urllib.request, urllib.error, urllib.parse
 
 # import cdf
