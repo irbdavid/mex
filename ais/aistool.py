@@ -81,6 +81,10 @@ class AISTool(object):
         figsize = (20, 12)
         if mobile:
             figsize = (17, 8)
+            
+        if plt.get_backend() == 'nbAgg':
+            figsize = (8, 6)
+            
         plt.close(figure_number)
         self.figure = plt.figure(figure_number, figsize=figsize, facecolor='0.6')
         g = mpl.gridspec.GridSpec(6, 2, width_ratios=[1,0.34],
@@ -643,7 +647,7 @@ class AISTool(object):
             for i, s in enumerate(self._messages):
                 txt += str(i + self._message_counter) + ': ' + s + '\n'
             plt.annotate(txt, (0.05, 0.995), xycoords='figure fraction',
-                fontsize=8, horizontalalignment='left', verticalalignment='top')
+                fontsize='xx-small', horizontalalignment='left', verticalalignment='top')
 
         # Axis formatters need redoing after each cla()
         nf = mpl.ticker.NullFormatter
@@ -1066,5 +1070,5 @@ if __name__ == '__main__':
 
     global ais_tool_instance
 
-    ais_tool_instance = AISTool(debug=False, mobile=True,
+    ais_tool_instance = AISTool(debug=False,
         orbit=orbit, digitization_db=db)
