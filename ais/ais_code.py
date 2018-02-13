@@ -643,11 +643,10 @@ class Ionogram(object):
         self.fp_local_error = None
         self.fp_local_phase = None
         self.altitude = None
+        self.mex_altitude = np.nan
+        self.sza = np.nan
         if self.time is not None:
             self.find_position()
-        else:
-            self.mex_altitude = np.inf
-            self.sza = 0.0
         # automatically load from some place?
         self.digitization = IonogramDigitization()
 
@@ -656,11 +655,16 @@ class Ionogram(object):
         return False
 
     def find_position(self):
-        pos, mso_pos, sza = mex.mso_r_lat_lon_position(float(self.time), sza=True, mso=True) # all in degrees
+        if np.isfinite(self.sza):
+            return
+
+        pos, mso_pos, sza = mex.mso_r_lat_lon_position(float(self.time),
+                    sza=True, mso=True) # all in degrees
+        self.iau_pgr_alt_lat_lon_position = mex.iau_pgr_alt_lat_lon_position(
+                    float(self.time))
         self.mso_r_lat_lon_position = pos
         self.mso_pos = mso_pos
         self.sza = sza
-        self.iau_pgr_alt_lat_lon_position = mex.iau_pgr_alt_lat_lon_position(float(self.time))
         self.mex_altitude = self.iau_pgr_alt_lat_lon_position[0]
 
     def check_frequency_table(self, validate=False):
@@ -728,7 +732,7 @@ class Ionogram(object):
             plt.ylim(extent[2],0.0)
         else:
             if labels:
-                celsius.ylabel('Alt* / km')
+                plt.ylabel('Alt* / km')
         ax.autoscale(enable=False, tight=True)
 
         if colorbar:
@@ -803,7 +807,7 @@ class Ionogram(object):
                 phase = 0.0
                 fs = np.arange(1,20) * d.fp_local / 1E6
                 plt.vlines(fs, *(plt.ylim()),
-                        color=color, linestyle='dashed', lw=2.)
+                        color=color, linestyle='dashed', lw=2.,alpha=alpha)
 
                 if errors:
                     plt.vlines(fs + d.fp_local_error/1.0E6, *(plt.ylim()),
