@@ -78,13 +78,16 @@ class AISReview(object):
         self.marker_size = marker_size
         self.cbar_ticks = np.arange(-16,-8, 2)
 
-        # Don't keep the db active
         if db_filename is not None:
-            self.digitization_list = ais_code.DigitizationDB(filename=db_filename,
-                            verbose=self.verbose).get_all()
+            self.digitization_db = ais_code.DigitizationDB(
+                    filename=db_filename, verbose=self.verbose)
+            self.digitization_list = self.digitization_db.get_all()
+
         else:
-            self.digitization_list = ais_code.DigitizationDB(orbit=self.orbit,
-                                verbose=self.verbose).get_all()
+            self.digitization_db = ais_code.DigitizationDB(
+                            orbit=self.orbit, verbose=self.verbose)
+            self.digitization_list = self.digitization_db.get_all()
+
 
         if self.digitization_list:
             self._newest = celsius.utcstr(float(max([d.timestamp for d in self.digitization_list])),format='C')[:-9]
@@ -97,6 +100,10 @@ class AISReview(object):
             self._oldest = np.nan
 
         self.ionogram_list = ais_code.read_ais(self.orbit)
+
+        # connect the digitizations to the ionograms
+        for i in self.ionogram_list:
+            i.digitization = self.digitization_db.get_nearest(i.time, strict=True)
 
         for i in self.ionogram_list:
             i.interpolate_frequencies()
@@ -553,12 +560,13 @@ class AISReview(object):
             if d.is_invertible():
                 d.invert(substitute_fp=subf(d.time))
                 if d.altitude.size:
-                    ii = round((float(d.time) - times[0]) / ais_code.ais_spacing_seconds)
+                    ii = int(round((float(d.time) - times[0]) / ais_code.ais_spacing_seconds))
                     img[ii,:] = np.interp(ranges, d.altitude[-1:0:-1],
                                             f(d.density[-1:0:-1]),
                                             right=np.nan, left=np.nan)[::-1]
 
-        extent = (self.extent[0], self.extent[1], np.nanmin(ranges), np.nanmax(ranges))
+        extent = (self.extent[0], self.extent[1],
+                np.nanmin(ranges), np.nanmax(ranges))
         plt.imshow(img.T, interpolation='Nearest', extent=extent,
                 origin='upper',aspect='auto', vmin=vmin, vmax=vmax, cmap=cmap)
 
@@ -584,7 +592,7 @@ class AISReview(object):
                 d.invert(substitute_fp=ais_code.ne_to_fp(4.))
                 if d.altitude.size:
                     # as it comes from invert, local values are first, peaks are last
-                    ii = round((float(d.time) - times[0]) / ais_code.ais_spacing_seconds)
+                    ii = int(round((float(d.time) - times[0]) / ais_code.ais_spacing_seconds))
                     img[ii,:] = np.interp(ranges, d.altitude[::-1],
                                             np.log10(d.density[::-1]),
                                             right=np.nan, left=np.nan)[::-1]
@@ -943,8 +951,6 @@ class AISReview(object):
 
         # if len(a.digitization_list) < 100:
         #     return
-        if set_cmap:
-            plt.hot()
         fig = plt.figure(figsize=(8.27, 11.69), dpi=70)
 
         n = 8 + 4 + 1 + 1 + 1
