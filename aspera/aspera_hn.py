@@ -54,7 +54,9 @@ def read_els(start, finish=None, verbose=False):
                 dt.day, dt.hour)
         remote_path = 'dja@aurora.irf.se:/irf/data/mars/aspera3/mars/elsdata/'
 
+        attempt_read = True
         if not os.path.exists(directory + fname):
+            attempt_read = False
             remote_fname = remote_path + '%04d%02d/%4d%02d%02d%02d0000.mat'
             remote_fname = remote_fname % (dt.year, dt.month,
                 dt.year, dt.month, dt.day, dt.hour)
@@ -88,18 +90,22 @@ def read_els(start, finish=None, verbose=False):
                 try:
                     # os.spawnvp(os.P_WAIT, command[0], command)
                     subprocess.check_call(command)
+                    attempt_read = True
                 except subprocess.CalledProcessError as e:
                     print(e)
                     raise IOError("Error moving file to %s" %
                         (directory + fname))
 
+        et += 60. * 60.
+        if not attempt_read:
+            continue
+            
         try:
             b = loadmat(directory + fname)
         except IOError as e:
             error_files.append(fname)
             if verbose:
                 print('Missing: %s' % fname)
-            et += 60. * 60.
             continue
 
         # Squeeze arrays
@@ -404,7 +410,7 @@ principal blocks being read by extending each dictionary."""
 
     remote_path = 'dja@aurora.irf.se:/irf/data/mars/aspera3/Mars_mat_files4/'
 
-    et = start - 3600. #one second before
+    et = start - 3600. #one hour before
 
     out = []
     error_files = []
@@ -418,7 +424,9 @@ principal blocks being read by extending each dictionary."""
         fname = dataset.lower() + '%4d%02d%02d%02d00.mat' % (dt.year, dt.month,
                 dt.day, dt.hour)
 
+        attempt_read = True
         if not os.path.exists(directory + fname):
+            attempt_read = False
             remote_fname = remote_path + fname
 
             fd, temp_f_name = tempfile.mkstemp(suffix='tmp.mat')
@@ -428,7 +436,7 @@ principal blocks being read by extending each dictionary."""
                 print('Fetching %s' % remote_fname)
             try:
                 # os.spawnvp(os.P_WAIT, command[0], command)
-                subprocess.check_call(command)
+                subprocess.check_call(command, stderr=subprocess.STDOUT)
 
                 # reset to zero on success
                 remote_failed_count = 0
@@ -452,10 +460,16 @@ principal blocks being read by extending each dictionary."""
                 try:
                     # os.spawnvp(os.P_WAIT, command[0], command)
                     subprocess.check_call(command)
+                    attempt_read = True
                 except subprocess.CalledProcessError as e:
                     print(e)
                     raise IOError("Error moving file to %s" %
                         (directory + fname))
+
+        et += 60. * 60.
+
+        if not attempt_read:
+            continue
 
         try:
             out.append(loadmat(directory + fname))
@@ -475,7 +489,6 @@ principal blocks being read by extending each dictionary."""
             if verbose:
                 print('Missing: %s' % fname)
 
-        et += 60. * 60.
 
     if verbose:
         print('Read %d files - %d errors' % (len(out), len(error_files)))
