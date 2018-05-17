@@ -314,7 +314,7 @@ class AISFileManager(object):
     """docstring for AISFileManager"""
     def __init__(self, remote='None', local='DEFAULT',
                     copy_to_local=True, verbose=False,
-                    overwrite=False, brain=False):
+                    overwrite=False, brain=True):
         super(AISFileManager, self).__init__()
 
         self.remote = remote
@@ -322,6 +322,10 @@ class AISFileManager(object):
         self.verbose = verbose
         self.overwrite = overwrite
         self.brain = brain
+        self.brain_username = os.getenv("BRAIN_USERNAME", "NONE")
+
+        if self.brain_username == "NONE":
+            self.brain = False
 
         if os.uname()[1] == 'spis': self.brain = False
         if os.uname()[1] == 'brain': self.brain = False # Hacks!
@@ -371,7 +375,9 @@ class AISFileManager(object):
                 print('Orbit %d is known to be empty' % time)
             raise IOError("No data for orbit %d known already" % time)
 
-        brain_fname = 'dja@brain.irfu.se:/data/div/data_maris/mex/marsis/ais/RDR%dX/FRM_AIS_RDR_%d.DAT' % (time // 10, time)
+        brain_fname = self.brain_username + '@brain.irfu.se:' + \
+            '/data/div/data_maris/mex/marsis/ais/RDR%dX/FRM_AIS_RDR_%d.DAT' \
+            % (time // 10, time)
         fd, temp_f_name = tempfile.mkstemp(suffix='_aistmp.dat')
         command = ('scp', brain_fname, temp_f_name)
 
@@ -497,7 +503,7 @@ and not overwriting""" % fname)
         raise IOError("No local file found for %d" % time)
 
 # Create a default instance
-file_manager = AISFileManager(remote='iowa', verbose=True, brain=False)
+file_manager = AISFileManager(remote='iowa', verbose=True, brain=True)
 
 def read_ais(start, finish=None, input_format=None, verbose=False):
 
@@ -555,7 +561,6 @@ def read_ais_file(file_name, verbose=False, debug=True):
     ais_fmt = '>IHHII8x24cBB9xBBBBB12xf80f'
     ais_fmt_short = '>I2H2I8x24c2B9x5B12x81f'
     ais_fmt_size = struct.calcsize(ais_fmt_short)
-    # ais_directory = '/Users/dave/data/mex/marsis/ais/'
 
     if ais_fmt_size != 400:
         raise Error("Format size should be 400 bytes.")
@@ -2243,7 +2248,7 @@ def compute_all_digitizations(orbit, filename=None, verbose=False):
     return result
 
 
-def produce_ne_b_file(orbits, file_name='DJA_MARSIS_ne_b_$DATE.txt',
+def produce_ne_b_file(orbits, file_name='MARSIS_ne_b_$DATE.txt',
         use_ais_index=False):
     """docstring for produce_ne_b_file"""
 
@@ -2315,7 +2320,7 @@ def write_yearly_ne_b_files(years=None, directory='.'):
     for y in years:
         start = mex.orbits[celsius.spiceet("%04d-001T00:00" % y)].number
         finish = mex.orbits[celsius.spiceet("%04d-001T00:00" % (y+1))].number - 1
-        fname = directory + '/' + 'DJA_MARSIS_ne_b_%d.txt' % y
+        fname = directory + '/' + 'MARSIS_ne_b_%d.txt' % y
         produce_ne_b_file(list(range(start, finish)), file_name=fname)
 
 def _sync_ais_data(start=1840, finish=None, outfile=None):

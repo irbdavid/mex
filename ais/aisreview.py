@@ -344,7 +344,7 @@ class AISReview(object):
         if return_image:
             return new_img, freq_extent, new_altitudes
 
-    def plot_mod_b(self, fmt='k.', ax=None,
+    def plot_mod_b(self, fmt='k.', ax=None, hide_bad_points=False,
                     field_model=True, errors=True, field_color='blue',
                     br=True, t_offset=0., label=True, **kwargs):
         if ax is None:
@@ -393,7 +393,9 @@ class AISReview(object):
 
             model_at_value = np.interp(t, self.t, bmag)
             inx = (model_at_value > 100.) & ((b / model_at_value) < 0.75)
-            plt.plot(t[inx], b[inx], 'ro', mec='r', mfc='none', ms=5., mew=1.2)
+            if not hide_bad_points:
+                plt.plot(t[inx], b[inx], 'ro', mec='r',
+                    mfc='none', ms=5., mew=1.2)
 
 
         if label:
@@ -1216,4 +1218,3 @@ if __name__ == '__main__':
         along_orbit=False, verbose=True, debug=True, fname=db_filename)
     # ao_plot(orbit)
     plt.show()
-    # plt.savefig("/Users/dave/Desktop/9747.pdf", dpi=20)

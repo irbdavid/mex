@@ -1069,7 +1069,5 @@ if __name__ == '__main__':
     else:
         db = None
 
-    global ais_tool_instance
-
     ais_tool_instance = AISTool(debug=False,
         orbit=orbit, digitization_db=db)

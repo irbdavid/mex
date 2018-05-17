@@ -16,7 +16,7 @@ import matplotlib.pylab as plt
 import matplotlib as mpl
 
 output_directories = [
-    '/Users/dave/Documents/Mars/',
+    expanduser('~/Documents/Mars/'),
     '/homelocal/data_maris/mex_results/'
 ]
 
