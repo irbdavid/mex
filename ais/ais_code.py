@@ -314,7 +314,7 @@ class AISFileManager(object):
     """docstring for AISFileManager"""
     def __init__(self, remote='None', local='DEFAULT',
                     copy_to_local=True, verbose=False,
-                    overwrite=False, brain=True):
+                    overwrite=False, brain=False):
         super(AISFileManager, self).__init__()
 
         self.remote = remote
@@ -497,7 +497,7 @@ and not overwriting""" % fname)
         raise IOError("No local file found for %d" % time)
 
 # Create a default instance
-file_manager = AISFileManager(remote='iowa', verbose=True)
+file_manager = AISFileManager(remote='iowa', verbose=True, brain=False)
 
 def read_ais(start, finish=None, input_format=None, verbose=False):
 
