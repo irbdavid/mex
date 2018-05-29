@@ -89,19 +89,17 @@ class AISReview(object):
             self.digitization_list = self.digitization_db.get_all()
 
 
-        if self.digitization_list:
-            self._newest = celsius.utcstr(float(max([d.timestamp for d in self.digitization_list])),format='C')[:-9]
-            self._oldest = celsius.utcstr(float(min([d.timestamp for d in self.digitization_list])),format='C')[:-9]
-            print("%d digitizations loaded, produced between: %s and %s" % (
-                                            len(self.digitization_list), self._oldest, self._newest))
-        else:
-            print("No digitizations loaded :(")
-            self._newest = np.nan
-            self._oldest = np.nan
-            # ais_code.compute_all_digitizations(self.orbit)
-            # self.digitization_db = ais_code.DigitizationDB(
-            #                 orbit=self.orbit, verbose=self.verbose)
-            # self.digitization_list = self.digitization_db.get_all()
+        if not self.digitization_list:
+            ais_code.compute_all_digitizations(self.orbit)
+            self.digitization_db = ais_code.DigitizationDB(
+                            orbit=self.orbit, verbose=self.verbose)
+            self.digitization_list = self.digitization_db.get_all()
+
+
+        self._newest = celsius.utcstr(float(max([d.timestamp for d in self.digitization_list])),format='C')[:-9]
+        self._oldest = celsius.utcstr(float(min([d.timestamp for d in self.digitization_list])),format='C')[:-9]
+        print("%d digitizations loaded, produced between: %s and %s" % (
+                                        len(self.digitization_list), self._oldest, self._newest))
 
         self.ionogram_list = ais_code.read_ais(self.orbit)
 
@@ -128,16 +126,17 @@ class AISReview(object):
         print(self.ionogram_list[0].time - s0, self.ionogram_list[-1].time - s0)
         print(min([i.time for i in self.ionogram_list]) - s0, max([i.time for i in self.ionogram_list]) - s0)
 
-
-        if self.ionogram_list[0].time < self.extent[0]:
-            print('WARNING: Pre-extending plot range by %s seconds to cover loaded ionograms' % (
-                            self.extent[0] - self.ionogram_list[0].time))
-            self.extent[0] = self.ionogram_list[0].time
-
-        if self.ionogram_list[-1].time > self.extent[1]:
-            print('WARNING: Post-extending plot range by %s seconds to cover loaded ionograms' % (
-                        self.ionogram_list[-1].time - self.extent[1]))
-            self.extent[1] = self.ionogram_list[-1].time
+        self.extent[0] = self.ionogram_list[0].time
+        self.extent[1] = self.ionogram_list[-1].time
+        # if self.ionogram_list[0].time < self.extent[0]:
+        #     print('WARNING: Pre-extending plot range by %s seconds to cover loaded ionograms' % (
+        #                     self.extent[0] - self.ionogram_list[0].time))
+        #     self.extent[0] = self.ionogram_list[0].time
+        #
+        # if self.ionogram_list[-1].time > self.extent[1]:
+        #     print('WARNING: Post-extending plot range by %s seconds to cover loaded ionograms' % (
+        #                 self.ionogram_list[-1].time - self.extent[1]))
+        #     self.extent[1] = self.ionogram_list[-1].time
 
         no_ionograms_expected = ((self.extent[1] - self.extent[0])
                                                         / ais_code.ais_spacing_seconds + 1)
@@ -536,7 +535,7 @@ class AISReview(object):
         if ax is None:
             ax = plt.gca()
         plt.sca(ax)
-        ax.set_axis_bgcolor("gray")
+        ax.set_facecolor("gray")
 
         if cmap is None:
             cmap = matplotlib.cm.hot
@@ -586,7 +585,7 @@ class AISReview(object):
         if ax is None:
             ax = plt.gca()
         plt.sca(ax)
-        ax.set_axis_bgcolor("gray")
+        ax.set_facecolor("gray")
 
         n_profiles = int((self.extent[1] - self.extent[0]) / ais_code.ais_spacing_seconds) + 1
         ranges = np.arange(80., 300., 1.)
@@ -1033,6 +1032,10 @@ class AISReview(object):
                 self.orbit,
                 celsius.spiceet_to_utcstr(self.extent[0],fmt='C')[0:17], self._newest),
             (0.5, 0.93), xycoords='figure fraction', ha='center')
+
+        for i in range(n):
+            axes[i].set_xlim(self.extent[0], self.extent[1])
+
 
         if save:
             if figurename is None:
