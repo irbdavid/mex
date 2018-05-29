@@ -98,6 +98,10 @@ class AISReview(object):
             print("No digitizations loaded :(")
             self._newest = np.nan
             self._oldest = np.nan
+            # ais_code.compute_all_digitizations(self.orbit)
+            # self.digitization_db = ais_code.DigitizationDB(
+            #                 orbit=self.orbit, verbose=self.verbose)
+            # self.digitization_list = self.digitization_db.get_all()
 
         self.ionogram_list = ais_code.read_ais(self.orbit)
 
@@ -1208,7 +1212,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         orbit = int(sys.argv[1])
     else:
-        orbit = 8021
+        orbit = 8020
     if len(sys.argv) > 2:
         db_filename = str(sys.argv[2])
     else:
