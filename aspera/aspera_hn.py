@@ -27,6 +27,12 @@ FUDGE_FIX_HANS_IMA_TIME_BUG = True
 
 MAX_FAILED_REMOTE_FILES = 24*10 # Assume all are missing if we find this many errors, to keep things moving
 
+@plt.FuncFormatter
+def fake_log(x, pos):
+    'The two args are the value and tick position'
+    return r'$10^{%d}$' % (x)
+
+
 def read_els(start, finish=None, verbose=False):
     """
     Read ASPERA/ELS data into blocks
@@ -37,7 +43,7 @@ def read_els(start, finish=None, verbose=False):
 
     directory = mex.data_directory + 'aspera/nilsson/els/mat/'
 
-    et = start - 3600. #one second before
+    et = start - 3600. - 1. #one second before
 
     out = []
     error_files = []
@@ -46,13 +52,14 @@ def read_els(start, finish=None, verbose=False):
     # allow_remote = True
 
     while True:
-        if et > (finish + 3600.):
+        if et > (finish + 3600. + 1.):
             break
 
         dt = celsius.spiceet_to_datetime(et)
         fname ='%4d/elec%4d%02d%02d%02d.mat' % (dt.year, dt.year, dt.month,
                 dt.day, dt.hour)
         remote_path = 'dja@aurora.irf.se:/irf/data/mars/aspera3/mars/elsdata/'
+        # remote_path = 'dja@aurora.irf.se:/irf/data/mars/aspera3/mars/els/mat/'
 
         attempt_read = True
         if not os.path.exists(directory + fname):
@@ -60,6 +67,8 @@ def read_els(start, finish=None, verbose=False):
             remote_fname = remote_path + '%04d%02d/%4d%02d%02d%02d0000.mat'
             remote_fname = remote_fname % (dt.year, dt.month,
                 dt.year, dt.month, dt.day, dt.hour)
+
+            # remote_fname = remote_path + remofname
 
             fd, temp_f_name = tempfile.mkstemp(suffix='tmp.mat')
             command = ('scp', remote_fname, temp_f_name)
@@ -96,11 +105,13 @@ def read_els(start, finish=None, verbose=False):
                     raise IOError("Error moving file to %s" %
                         (directory + fname))
 
-        et += 60. * 60.
+        et += 3600.
         if not attempt_read:
             continue
-            
+
         try:
+            if verbose:
+                print('Loading ' + directory + fname )
             b = loadmat(directory + fname)
         except IOError as e:
             error_files.append(fname)
@@ -115,9 +126,9 @@ def read_els(start, finish=None, verbose=False):
 
         if verbose:
             print('Read:    %s: %s - %s' % (fname,
-                    celsius.time_convert(b['elstimes'][0,0],
+                    celsius.time_convert(b['elstimes'][0],
                         'UTCSTR', 'MATLABTIME'),
-                    celsius.time_convert(b['elstimes'][0,-1],
+                    celsius.time_convert(b['elstimes'][-1],
                         'UTCSTR', 'MATLABTIME')))
 
 #         if b['EElec'].size < 2:
@@ -128,7 +139,6 @@ def read_els(start, finish=None, verbose=False):
 #             et += 60. * 60.
 #             continue
 
-        et += 60. * 60.
         out.append(b)
 
     return out
@@ -157,7 +167,7 @@ def plot_els_spectra(start, finish, sector='SUM', colorbar=True,
         longElec (1, 215)
         EElec (128, 1)
 
-    New versions:
+    New versions: (112=time)
         elslevels (128, 112)
         elsmatrix (128, 16, 783)
         elstimes (1, 783)
@@ -172,7 +182,7 @@ def plot_els_spectra(start, finish, sector='SUM', colorbar=True,
     if ax is None:
         ax = plt.gca()
     plt.sca(ax)
-    ax.set_axis_bgcolor('lightgrey')
+    ax.set_facecolor('lightgrey')
 
     if not cmap:
         cmap = Spectral_r
@@ -231,12 +241,20 @@ def plot_els_spectra(start, finish, sector='SUM', colorbar=True,
                         np.min(np.abs(b['elslevels'])),
                         np.max(b['elslevels'])]
 
+        if extent[2] < 1.:
+            extent[2] = 1
+
         if extent[2] < min_energy:
             min_energy = extent[2]
 
         if extent[3] > max_energy:
             max_energy = extent[3]
-        print(extent)
+
+        print('Extent = ',extent)
+        e = b['elslevels']
+        # e = e[np.where(e > 0.)]
+        # print(np.min(e))
+        # print(b['elslevels'][:,0])
         # if check_times:
         #     spacing = 86400.*np.mean(np.diff(b['tElec']))
         #     if spacing > 15.:
@@ -262,57 +280,74 @@ def plot_els_spectra(start, finish, sector='SUM', colorbar=True,
         # extent[2] = extent[3]
         # extent[3] = e
 
-        ims.append( plt.imshow(img, extent=extent, origin='upper',
+        # astype float 32 required
+        ims.append( plt.imshow(img.astype(np.float32),
+                    extent=[extent[0], extent[1],
+                        np.log10(extent[2]), np.log10(extent[3])],
+                    # origin='upper',
                     interpolation='nearest',
-                    cmap=cmap, norm=norm) )
+                    cmap=cmap, norm=norm, aspect='auto') )
 
         last_finish = extent[1]
 
     number_of_blocks = len(blocks)
 
     if blocks:
-        plt.xlim(start, finish)
-        plt.ylim(min_energy, max_energy)
+        # plt.xlim(start, finish)
+        plt.ylim(np.log10(min_energy), np.log10(max_energy))
 
         cbar_im = ims[0]
 
     else:
-        plt.ylim(1E0, 1E4)
+        plt.ylim(1,4)
         # need to create an empty image so that colorbar functions
         cbar_im = plt.imshow(np.zeros((1,1)), cmap=cmap, norm=norm,
-                visible=False)
+                visible=False, aspect='auto')
 
-    plt.ylim(min_energy, max_energy)
-    plt.yscale('log')
-    # plt.ylabel('E / eV')
+    # ytickv = np.array((10., 100., 1000.)) / (max_energy-min_energy)
+    plt.yticks([0,1,2,3,4])
+
+    # plt.yticks(np.log10(ytickv) * (max_energy-min_energy)+min_energy,
+    #     [str(y) for y in ytickv])
+    # plt.ylim(min_energy, max_energy)
+    # plt.yscale('log')
+    plt.gca().yaxis.set_major_formatter(fake_log)
+    plt.ylabel('E / eV')
     print('ELS PLOT: Time is not accurate to more than ~+/- 4s for now.')
+
+    # energy table clearly not corrrectly handled, so mark it on the figure
+    plt.annotate("E VALUES INCORRECT", (0.5, 0.5),
+            xycoords='axes fraction',
+            color='red', zorder=99, ha='center')
 
     if colorbar:
         if ims:
-            plt.colorbar(cbar_im, cax=celsius.make_colorbar_cax(), ticks=cbar_ticks).set_label(label)
+            #ticks=cbar_ticks
+            plt.colorbar(cbar_im, cax=celsius.make_colorbar_cax(),
+                ).set_label(label)
+    #
+    # if return_val:
+    #
+    #     if return_val.upper() == 'IMAGES':
+    #         del blocks
+    #         return ims
+    #     elif return_val.upper() == 'BLOCKS':
+    #         del ims
+    #         return blocks
+    #     else:
+    #         print('Unrecognised return_value = ' + str(return_value))
 
-    if return_val:
-
-        if return_val.upper() == 'IMAGES':
-            del blocks
-            return ims
-        elif return_val.upper() == 'BLOCKS':
-            del ims
-            return blocks
-        else:
-            print('Unrecognised return_value = ' + str(return_value))
-
-
-
-    del blocks
-    del ims
+    #
+    #
+    # del blocks
+    # del ims
     return number_of_blocks
 
 def test_els_spectra(orbit=6000):
     """docstring for test"""
 
-    start  = mex.orbits[orbit].periapsis - 4. * 3600.
-    finish = mex.orbits[orbit].periapsis + 4. * 3600.
+    start  = mex.orbits[orbit].periapsis - 4. * 600.
+    finish = mex.orbits[orbit].periapsis + 4. * 600.
 
     blocks = read_els(start, finish, verbose=True)
     # check_blocks(blocks)
@@ -348,8 +383,9 @@ def test_els_spectra(orbit=6000):
     #     plt.sca(ax.next())
     #     plot_els_spectra(start, finish, sector=i, blocks=blocks, verbose=True)
 
-
-
+    # plt.figure()
+    # for b in blocks:
+    #     plt.plot(b['elslevels'])
 
     plt.show()
 
@@ -542,7 +578,7 @@ def plot_ima_spectra(start, finish, species=['H','O','O2'], colorbar=True,
     if ax is None:
         ax = plt.gca()
     plt.sca(ax)
-    ax.set_axis_bgcolor('lightgrey')
+    ax.set_facecolor('lightgrey')
 
     if not cmap:
         cmap = matplotlib.cm.Greys_r
@@ -610,7 +646,7 @@ def plot_ima_spectra(start, finish, species=['H','O','O2'], colorbar=True,
                 raise ValueError('Unrecognised energy table: E: %e - %e in %d steps?' %
                                     (b['E'][-1], b['E'][-1], b['sumions'].shape[0])
                                 )
-
+        # print(b['E'])
 
         if extent[2] < min_energy:
             min_energy = extent[2]
@@ -650,6 +686,7 @@ def plot_ima_spectra(start, finish, species=['H','O','O2'], colorbar=True,
             img[img < 0.01] += 0.1e-10
             img = np.log10(img)
             tot = np.sum(img)
+
         if verbose:
             print('Total scaled: %e' % tot)
             # print 'Fraction good = %2.0f%%' % (np.float(np.sum(np.isfinite(img))) / (img.size) * 100.)
@@ -683,23 +720,32 @@ def plot_ima_spectra(start, finish, species=['H','O','O2'], colorbar=True,
             print('Dumping block (A)', extent[0] - finish)
             continue
 
-        ims.append( plt.imshow(img, extent=extent, origin='upper',
-                    interpolation='nearest',
-                    cmap=cmap, norm=norm) )
+        ims.append( plt.imshow(img.astype(np.float32),
+                    extent=[extent[0], extent[1],
+                        np.log10(extent[2]),np.log10(extent[3])],
+                    origin='upper', interpolation='nearest',
+                    cmap=cmap, norm=norm, aspect='auto') )
 
+        # energy table clearly not corrrectly handled, so mark it on the figure
+        plt.annotate("E VALUES INCORRECT", (0.5, 0.5),
+                xycoords='axes fraction',
+                color='red', zorder=99, ha='center')
         last_finish = extent[1]
 
     if ims:
         plt.xlim(start, finish)
-        plt.ylim(min_energy, max_energy)
+        # plt.ylim(min_energy, max_energy)
         cbar_im = ims[0]
     else:
-        plt.ylim(10., 60000) # guess
+        plt.ylim(1, 5) # guess
         # invisible image for using with colorbar
-        cbar_im = plt.imshow(np.zeros((1,1)), cmap=cmap, norm=norm, visible=False)
+        cbar_im = plt.imshow(np.zeros((1,1)), cmap=cmap, norm=norm,
+                visible=False, aspect='auto')
 
-    plt.yscale('log')
+    # plt.yscale('log')
     celsius.ylabel('E / eV')
+    plt.yticks((1,2,3,4,5))
+    plt.gca().yaxis.set_major_formatter(fake_log)
 
     if colorbar:
         ## make_colorbar_cax is doing something weird to following colorbars...
@@ -792,7 +838,7 @@ def plot_ima_mass_matrix(start, finish, product=None, colorbar=True, ax=None, bl
             for p in products_to_process:
                 img += np.sum(b[p][:,:,inx], 2)
 
-    plt.imshow(img, origin='lower')
+    plt.imshow(img, origin='lower', aspect='auto')
     if colorbar:
         plt.colorbar(cax=celsius.make_colorbar_cax())
 
@@ -998,10 +1044,13 @@ Leif
 if __name__ == '__main__':
     import sys
     o = 8020
+
+
+
     if len(sys.argv) > 1:
         o = int(sys.argv[1])
 
     fig, axs = plt.subplots(2,1, sharex=True)
-
-    test_ima_spectra(o)
+    test_els_spectra(o)
+    # test_ima_spectra(o)
     # test_ima_mass_matrix(o)
