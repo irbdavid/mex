@@ -20,7 +20,7 @@ import subprocess
 np.seterr(all='ignore')
 save_every = 1
 
-queue=False
+queue = False
 
 def determine_last_processed_orbit():
     max_orbit = -1
@@ -111,7 +111,7 @@ if __name__ == '__main__':
 
     start = determine_last_processed_orbit() - 50
     # start = 1840
-    # start = 14935
+    start = 14935
     finish = mex.orbits[celsius.now()].number - 10
 
     if len(sys.argv) > 1:
@@ -143,8 +143,8 @@ if __name__ == '__main__':
     writer = mp.Process(target=queue_writer)
     writer.start()
 
-    # runner = async_worker_review
-    runner = async_worker_computer
+    runner = async_worker_review
+    # runner = async_worker_computer
 
     # print('--- test --- ')
     # print(runner(4264, debug=True, verbose=True))
