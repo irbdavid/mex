@@ -699,7 +699,7 @@ class Ionogram(object):
         if ax == None:
             ax = plt.gca()
         plt.sca(ax)
-        ax.set_axis_bgcolor('black')
+        ax.set_facecolor('black')
 
         if not np.isfinite(self.mex_altitude):
             if verbose: print('Position')
