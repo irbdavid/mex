@@ -45,7 +45,7 @@ def async_worker_computer(o, debug=False, verbose=False):
     result = 'FAILED %d\n' % o
     try:
         mex.ais.compute_all_digitizations(o)
-        result = 'SUCCESSFULLY %d\n' % o
+        result = 'SUCCESSFUL: %d\n' % o
     except Exception as e:
         result = result + str(e)
         if debug:
@@ -133,7 +133,6 @@ if __name__ == '__main__':
     def cb(s):
         print(s)
 
-
     queue = mp.JoinableQueue()
     # f = open('output.txt','w')
     # f.write("Starting...\n\n")
@@ -163,7 +162,7 @@ if __name__ == '__main__':
 
     print('-- Starting work...')
     print('-- orbits = ', orbits)
-    r = [pool.apply_async(runner, (o,)) for o in reversed(orbits)]
+    r = [pool.apply_async(runner, (o,)) for o in orbits]
     print('-- Jobs allocated')
 
     pool.close()
