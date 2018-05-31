@@ -443,9 +443,9 @@ class AISFileManager(object):
                 self.authhandler = urllib.request.HTTPBasicAuthHandler(self.passman)
                 self.opener = urllib.request.build_opener(self.authhandler)
                 urllib.request.install_opener(self.opener)
-                pagehandle = urllib.request.urlopen(url)
-                print('Fetching %s ... ' % url)
-                thepage = pagehandle.read()
+                with urllib.request.urlopen(url) as pagehandle:
+                    print('Fetching %s ... ' % url)
+                    thepage = pagehandle.read()
 
             except urllib.error.HTTPError as e:
                 if e.code == 404:
