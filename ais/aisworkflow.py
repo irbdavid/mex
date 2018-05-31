@@ -14,6 +14,8 @@ import sys
 import gc
 import os
 
+import time as py_time
+
 import multiprocessing as mp
 import subprocess
 
@@ -37,6 +39,19 @@ def determine_last_processed_orbit():
                     max_orbit = orbit
 
     return max_orbit
+
+def determine_old_orbits(max_age=86400.*7):
+    orbits = []
+    now = py_time.time()
+    p = os.getenv('SC_DATA_DIR') + 'mex/ais_plots/v0.9/'
+    for root, dirs, files in os.walk(p):
+        for f in files:
+            s = os.stat(root + '/' + f)
+            if '.pdf' in f:
+                if (now - s.st_mtime) > max_age:
+                    orbits.append(int(f.split('.')[0]))
+                    print(orbits[-1])
+    return sorted(orbits)
 
 def junk(o):
     return str(o)
@@ -120,6 +135,8 @@ if __name__ == '__main__':
         finish = int(sys.argv[2])
 
     orbits = list(range(start, finish))
+
+    orbits = determine_old_orbits(86400.*3.)
 
     completed_orbits = []
     duration_list = []
