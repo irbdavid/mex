@@ -82,8 +82,8 @@ class AISTool(object):
         if mobile:
             figsize = (17, 8)
 
-        if plt.get_backend() == 'nbAgg':
-            figsize = (8, 6)
+        if 'nbagg' in plt.get_backend().lower():
+            figsize = (10, 10)
 
         plt.close(figure_number)
         self.figure = plt.figure(figure_number,
