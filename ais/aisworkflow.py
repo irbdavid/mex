@@ -19,6 +19,12 @@ import time as py_time
 import multiprocessing as mp
 import subprocess
 
+import logging
+import logging.handlers
+
+#Some stuff from
+# https://docs.python.org/3/howto/logging-cookbook.html
+
 np.seterr(all='ignore')
 save_every = 1
 
@@ -53,56 +59,81 @@ def determine_old_orbits(max_age=86400.*7):
                     print(orbits[-1])
     return sorted(orbits)
 
-def junk(o):
+
+def worker_configurer(queue):
+    h = logging.handlers.QueueHandler(queue)  # Just the one handler needed
+    root = logging.getLogger()
+    root.handlers = []
+    root.addHandler(h)
+    # send all messages, for demo; no other level or filter logic applied.
+    root.setLevel(logging.DEBUG)
+
+def junk(o, queue, configurer):
+    configurer(queue)
+    # logger.log(logging.DEBUG, str(o))
+    logging.info(str(o))
+    print(str(o))
     return str(o)
 
-def async_worker_computer(o, debug=False, verbose=False):
-    result = 'FAILED %d\n' % o
+def async_worker_computer(o, queue, configurer, debug=False, verbose=False):
+    configurer(queue)
+    logging.info('Starting %d' % o)
+
     try:
         mex.ais.compute_all_digitizations(o)
-        result = 'SUCCESSFUL: %d\n' % o
+        logging.info('Completed %d' % o)
     except Exception as e:
-        result = result + str(e)
         if debug:
             raise
+        logging.info('Error %d: %s' % (o, str(e)))
+        return False
 
-    global queue
-    if queue:
-        queue.put(result)
-    if verbose:
-        print(result)
-    return result
+    return True
 
-def async_worker_review(o, debug=True, verbose=True):
-    result = 'FAILED %d\n' % o
+def async_worker_review(o, queue, configurer, debug=True, verbose=True):
+    configurer(queue)
+    logging.info('Starting %d' % o)
+
     try:
+        mex.ais.compute_all_digitizations(o)
         d = mex.ais.DigitizationDB(o)
         if len(d) == 0:
             mex.ais.compute_all_digitizations(o)
         main(o, show=False, save=True)
-        result = 'SUCCESSFULLY %d\n' % o
+        logging.info('Completed %d' % o)
     except Exception as e:
-        result = result + str(e)
         if debug:
             raise
+        logging.info('Error %d: %s' % (o, str(e)))
+        return False
 
-    global queue
-    if queue:
-        queue.put(result)
-    if verbose:
-        print(result)
-    return result
+    return True
 
-def queue_writer():
-    global queue
-    # pass
-    fh = open(os.getenv('SC_DATA_DIR') + 'mex/ais_workflow_output.txt','w')
+def listener_configurer():
+    root = logging.getLogger()
+    h = logging.FileHandler(
+        os.getenv('SC_DATA_DIR') + 'mex/ais_workflow_output.txt')
+    f = logging.Formatter('%(asctime)s %(processName)-10s %(name)s %(levelname)-8s %(message)s')
+    h.setFormatter(f)
+    root.addHandler(h)
+    print('Configured')
+
+# This is the listener process top-level loop: wait for logging events
+# (LogRecords)on the queue and handle them, quit when you get a None for a
+# LogRecord.
+def listener_process(queue, configurer):
+    configurer()
     while True:
-        g = queue.get()
-        fh.write(str(celsius.utcstr(celsius.now())) + ': '+ str(g)+'\n')
-        fh.flush()
-        queue.task_done()
-    fh.close()
+        try:
+            record = queue.get()
+            if record is None:  # We send this as a sentinel to tell the listener to quit.
+                break
+            logger = logging.getLogger(record.name)
+            logger.handle(record)  # No level or filter logic applied - just do it!
+        except Exception:
+            import sys, traceback
+            print('Whoops! Problem:', file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
 
 class DeltaTimer(object):
     """docstring for DeltaTimer"""
@@ -124,7 +155,7 @@ if __name__ == '__main__':
     exception_list = {}
     repeat = True
 
-    start = determine_last_processed_orbit() - 50
+    # start = determine_last_processed_orbit() - 50
     # start = 1840
     start = 14935
     finish = mex.orbits[celsius.now()].number - 10
@@ -136,31 +167,22 @@ if __name__ == '__main__':
 
     orbits = list(range(start, finish))
 
-    orbits = determine_old_orbits(86400.*3.)
+    orbits = determine_old_orbits(86400.*5.)
+
+    # orbits = range(5)
 
     completed_orbits = []
     duration_list = []
 
-    # f = lambda o: os.path.exists(mex.data_directory + \
-    #                 'marsis/ais_digitizations/%05d/%05d.dig' % (o/1000 * 1000, o))
-    #
-    # if not repeat:
-    #     orbits = [o for o in orbits if f(o)]
-
-    def cb(s):
-        print(s)
-
-    queue = mp.JoinableQueue()
-    # f = open('output.txt','w')
-    # f.write("Starting...\n\n")
-    # f.close()
-
     print('-- Starting writer')
-    writer = mp.Process(target=queue_writer)
+    queue = mp.Manager().Queue(-1)
+    writer = mp.Process(target=listener_process,
+            args=(queue, listener_configurer))
     writer.start()
 
     runner = async_worker_review
     # runner = async_worker_computer
+    # runner = junk
 
     # print('--- test --- ')
     # print(runner(4264, debug=True, verbose=True))
@@ -171,27 +193,22 @@ if __name__ == '__main__':
         processes = 8
 
     print('-- Creating pool of %d processes' % processes)
-    # pool = mp.Pool(processes, async_worker_init, [the_queue])
     pool = mp.Pool(processes)
-    # r = pool.map_async(worker, reversed(orbits), callback=cb)
-    # r.wait()
-    # r = [pool.apply_async(async_worker, (o,)) for o in reversed(orbits)]
 
     print('-- Starting work...')
     print('-- orbits = ', orbits)
-    r = [pool.apply_async(runner, (o,)) for o in orbits]
+    r = [pool.apply_async(runner, args = (o, queue, worker_configurer)) for o in orbits]
     print('-- Jobs allocated')
 
     pool.close()
-    print('-- Pool closed, joining pool')
-
     pool.join()
 
-    queue.close()
-    queue.join()
-    print('-- Queue closed, joining writer')
+    queue.put_nowait(None)
+    # queue.close()
+    # queue.join()
+    # print('-- Queue closed, joining writer')
     writer.terminate()
-    # writer.join()
+    writer.join()
     # print r[0].get()`
 
     print("\n" * 5)
@@ -200,9 +217,6 @@ if __name__ == '__main__':
     # for k, v in exception_list.iter_items():
     #     print '%s: %s' % (celsius.utcstr(k), str(v))
 
-    print("Successful orbits, durations:")
-    for o, d in zip(completed_orbits, duration_list):
-        print("%d: %d" % (o, d))
-
-    mex.ais.ais_code._generate_ais_coverage()
-    mex.ais.ais_code._generate_ais_index(recompute=False, update=True)
+    if not runner == junk:
+        mex.ais.ais_code._generate_ais_coverage()
+        mex.ais.ais_code._generate_ais_index(recompute=False, update=True)
