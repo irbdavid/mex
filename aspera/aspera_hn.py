@@ -51,6 +51,8 @@ def read_els(start, finish=None, verbose=False):
     remote_failed_count = 0
     # allow_remote = True
 
+    username = os.getenv("AURORA_IRF_SE_UNAME", "dja")
+
     while True:
         if et > (finish + 3600. + 1.):
             break
@@ -58,7 +60,9 @@ def read_els(start, finish=None, verbose=False):
         dt = celsius.spiceet_to_datetime(et)
         fname ='%4d/elec%4d%02d%02d%02d.mat' % (dt.year, dt.year, dt.month,
                 dt.day, dt.hour)
-        remote_path = 'dja@aurora.irf.se:/irf/data/mars/aspera3/mars/elsdata/'
+
+        remote_path = username +\
+                '@aurora.irf.se:/irf/data/mars/aspera3/mars/elsdata/'
         # remote_path = 'dja@aurora.irf.se:/irf/data/mars/aspera3/mars/els/mat/'
 
         attempt_read = True
@@ -444,7 +448,10 @@ principal blocks being read by extending each dictionary."""
 
     directory = mex.data_directory + 'aspera/nilsson/Mars_mat_files4/'
 
-    remote_path = 'dja@aurora.irf.se:/irf/data/mars/aspera3/Mars_mat_files4/'
+    username = os.getenv("AURORA_IRF_SE_UNAME", "dja")
+
+    remote_path = username + \
+        '@aurora.irf.se:/irf/data/mars/aspera3/Mars_mat_files4/'
 
     et = start - 3600. #one hour before
 

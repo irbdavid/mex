@@ -345,7 +345,7 @@ def solar_longitude(t, body="MARS", correction="NONE"):
         return f(t)
 
 def sub_solar_longitude(et):
-
+    """Return the sub-solar longitude on MARS at time `et`, in EAST longitude (degrees)."""
     check_spice_furnsh(et)
 
     def f(t):
@@ -358,10 +358,16 @@ def sub_solar_longitude(et):
         else:
             return f(time)
 
+    # recpgr returns W longitudes always
+    # recpgr local to MARS defined below
     tmp = recpgr(func(et))
-    return np.rad2deg(tmp[0])
+
+    # convert to E longitude,
+    return np.rad2deg(2. * np.pi - tmp[0])
 
 def sub_solar_latitude(et, body='MARS'):
+    """Return the sub-solar latitude on MARS at time `et` (radians)."""
+
     check_spice_furnsh(et)
 
     def f(t):
