@@ -473,7 +473,7 @@ def read_all_mex_orbits(recompute=False, allow_write=True, verbose=False):
 
     if not recompute:
         try:
-            age = (py_time.clock() - os.path.getctime(fname)) / 86400
+            age = (py_time.time() - os.path.getctime(fname)) / 86400
             if age > 10:
                 print("Pickled orbits file is %f days old - recomputing" % age)
                 require_write = True
