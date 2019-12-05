@@ -479,26 +479,25 @@ def read_all_mex_orbits(recompute=False, allow_write=True, verbose=False):
 
     if not recompute:
         try:
-            age = (py_time.time() - os.path.getctime(fname)) / 86400
+            age = (py_time.time() - os.stat(fname).st_mtime) / 86400
             if age > 10:
                 print("Pickled orbits file is %f days old - recomputing" % age)
                 require_write = True
+            else:
+                try:
+                    if verbose:
+                        print('Restoring pickled orbits from %s' % fname)
+                    with open(fname, 'rb') as f:
+                        orbits = pickle.load(f)
+                        return orbits
+                except Exception as e:
+                    print('Encountered error reading stored orbit file:')
+                    print('\t', e)
+                    require_write = True
         except OSError as e:
             print("Pickled orbits not found - generating")
             age = -1
             require_write = True
-        else:
-            if verbose:
-                print('Restoring pickled orbits from %s' % fname)
-
-            try:
-                with open(fname, 'rb') as f:
-                    orbits = pickle.load(f)
-                    return orbits
-            except Exception as e:
-                print('Encountered error reading stored orbit file:')
-                print('\t', e)
-                require_write = True
     else:
         require_write = True
 
